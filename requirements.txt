@@ -1,5 +1,7 @@
-torch>=2.0.1
-nltk>=3.8.1
-sacremoses>=0.1.1
-sentencepiece>=0.1.99
-transformers>=4.36.0
+setuptools==68.2.2
+torch
+nltk
+sacremoses
+sentencepiece
+transformers
+indic-nlp-library @ git+https://github.com/VarunGumma/indic_nlp_library

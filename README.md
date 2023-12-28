@@ -8,11 +8,12 @@ The goal of this repository is to provide a simple, modular, and extendable toke
  - Other requirements as listed in `requirements.txt`
 
 ## Configuration
- - Installation from pip : `pip install indictrans-tokenizer`
  - Editable installation:
-    - `git clone https://github.com/VarunGumma/IndicTransTokenizer`
-    - `cd IndicTransTokenizer`
-    - `pip install --editable ./`
+```bash 
+git clone https://github.com/VarunGumma/IndicTransTokenizer
+cd IndicTransTokenizer
+pip install --editable ./
+```
 
 ## Usage
 ```python
@@ -20,7 +21,8 @@ import os
 import json
 import torch
 from transformers import AutoModelForSeq2SeqLM
-from IndicTransTokenizer import IndicTransTokenizer, IndicProcessor
+from IndicTransTokenizer.utils import IndicProcessor
+from IndicTransTokenizer.tokenizer import IndicTransTokenizer
 
 tokenizer = IndicTransTokenizer(direction="en-indic")
 ip = IndicProcessor(inference=True)
@@ -44,9 +46,9 @@ print(outputs)
 For using the tokenizer to train/fine-tune the model, just set the `inference` argument of IndicProcessor to `True`.
 
 ## Authors
+ - Varun Gumma (varun230999@gmail.com)
  - Jay Gala (jaygala24@gmail.com)
  - Pranjal Agadh Chitale (pranjalchitale@gmail.com)
- - Varun Gumma (varun230999@gmail.com)
  - Raj Dabre (prajdabre@gmail.com)
 
 

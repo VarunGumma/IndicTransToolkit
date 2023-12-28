@@ -6,7 +6,7 @@ from pkg_resources import parse_requirements
 
 
 def write_version_py():
-    with open(os.path.join("IndicTransTokenizer", "version.txt")) as f:
+    with open(os.path.join("IndicTransTokenizer, version.txt"), "r") as f:
         version = f.read().strip()
 
     with open(os.path.join("IndicTransTokenizer", "version.py"), "w") as f:
@@ -24,7 +24,7 @@ with open("README.md", "r") as fh:
 version = write_version_py()
 
 setup(
-    name="IndicTransTokenizer",  # Replace with your own username
+    name="IndicTransTokenizer",
     version=version,
     author="Varun Gumma",
     author_email="varun230999@gmail.com",
@@ -42,9 +42,6 @@ setup(
     python_requires=">=3.8",
     install_requires=[
         str(requirement)
-        for requirement in parse_requirements(pathlib.Path("requirements.txt").open())
-    ],
-    dependency_links=[
-        "git+https://github.com/VarunGumma/indic_nlp_library.git#egg=indic_nlp_library"
+        for requirement in parse_requirements(pathlib.Path(f"requirements.txt").open())
     ],
 )
