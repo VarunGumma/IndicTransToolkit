@@ -61,7 +61,7 @@ In case you encounter any bugs or want additional functionalities, please feel f
 
 ## Citation
 If you use our codebase, models or tokenizer, please do cite the following paper:
-```
+```bibtex
 @article{
     gala2023indictrans,
     title={IndicTrans2: Towards High-Quality and Accessible Machine Translation Models for all 22 Scheduled Indian Languages},
