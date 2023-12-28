@@ -6,7 +6,7 @@ from pkg_resources import parse_requirements
 
 
 def write_version_py():
-    with open(os.path.join("IndicTransTokenizer, version.txt"), "r") as f:
+    with open(os.path.join("IndicTransTokenizer", "version.txt"), "r") as f:
         version = f.read().strip()
 
     with open(os.path.join("IndicTransTokenizer", "version.py"), "w") as f:

@@ -8,10 +8,11 @@ The goal of this repository is to provide a simple, modular, and extendable toke
  - Other requirements as listed in `requirements.txt`
 
 ## Configuration
- - Editable installation:
+ - Editable installation (Note, this may take a while):
 ```bash 
 git clone https://github.com/VarunGumma/IndicTransTokenizer
 cd IndicTransTokenizer
+
 pip install --editable ./
 ```
 
