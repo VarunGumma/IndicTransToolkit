@@ -18,8 +18,6 @@ pip install --editable ./
 
 ## Usage
 ```python
-import os
-import json
 import torch
 from transformers import AutoModelForSeq2SeqLM
 from IndicTransTokenizer.utils import IndicProcessor
@@ -29,22 +27,26 @@ tokenizer = IndicTransTokenizer(direction="en-indic")
 ip = IndicProcessor(inference=True)
 model = AutoModelForSeq2SeqLM.from_pretrained("ai4bharat/indictrans2-en-indic-dist-200M", trust_remote_code=True)
 
-sentence = "This is a test sentence"
+sentences = [
+    "This is a test sentence.",
+    "This is another longer different test sentence.",
+    "Please send an SMS to 9876543210 and an email on newemail123@xyz.com by 15th October, 2023.",
+]
 
-batch = ip.preprocess_batch([sentence], src_lang="eng_Latn", tgt_lang="hin_Deva")
+batch = ip.preprocess_batch(sentences, src_lang="eng_Latn", tgt_lang="hin_Deva")
 batch = tokenizer(batch, src=True, return_tensors="pt")
 
 with torch.inference_mode():
     outputs = model.generate(**batch, num_beams=5, num_return_sequences=1, max_length=256)
 
-outputs = tokenizer.batch_decode(outputs, src=False) 
+outputs = tokenizer.batch_decode(outputs, src=False)
 outputs = ip.postprocess_batch(outputs, lang="hin_Deva")
 print(outputs)
 
->>> ['यह एक परीक्षण वाक्य है']
+>>> ['यह एक परीक्षण वाक्य है।', 'यह एक और लंबा अलग परीक्षण वाक्य है।', 'कृपया 9876543210 पर एक एस. एम. एस. भेजें और 15 अक्टूबर, 2023 तक newemail123@xyz.com पर एक ईमेल भेजें।']
 ```
 
-For using the tokenizer to train/fine-tune the model, just set the `inference` argument of IndicProcessor to `True`.
+For using the tokenizer to train/fine-tune the model, just set the `inference` argument of IndicProcessor to `False`.
 
 ## Authors
  - Varun Gumma (varun230999@gmail.com)

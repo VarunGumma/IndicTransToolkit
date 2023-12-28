@@ -534,11 +534,10 @@ class IndicProcessor:
         """
 
         lang_code, script_code = lang.split("_")
-        sent = sent.replace(" ", "").replace("▁", " ").strip()
 
         # Fixes for Perso-Arabic scripts
         # TODO: Move these normalizations inside indic-nlp-library
-        if script_code in {"Arab", "Aran"}:
+        if script_code in ["Arab", "Aran"]:
             # UrduHack adds space before punctuations. Since the model was trained without fixing this issue, let's fix it now
             sent = sent.replace(" ؟", "؟").replace(" ۔", "۔").replace(" ،", "،")
             # Kashmiri bugfix for palatalization: https://github.com/AI4Bharat/IndicTrans2/issues/11

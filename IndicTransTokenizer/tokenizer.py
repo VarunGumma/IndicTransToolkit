@@ -193,7 +193,12 @@ class IndicTransTokenizer:
         """Detokenizes a list of integer ids into a string using the source/target vocabulary."""
         tokens = self._decode_line(ids, src)
         tokens = self._strip_special_tokens(tokens)
-        return self._convert_tokens_to_string(tokens, src)
+        return (
+            self._convert_tokens_to_string(tokens, src)
+            .replace(" ", "")
+            .replace("▁", " ")
+            .strip()
+        )
 
     def __call__(
         self,
@@ -241,7 +246,7 @@ class IndicTransTokenizer:
 
         if return_attention_mask:
             _data["attention_mask"] = attention_mask
-            
+
         if return_length:
             _data["lengths"] = lengths
 
