@@ -196,7 +196,7 @@ class IndicProcessor:
             "\u0c6f": "9",
         }
 
-        self._current_batch_placeholder_entity_map = []
+        self._placeholder_entity_maps = []
 
         self._en_tok = MosesTokenizer(lang="en")
         self._en_normalizer = MosesPunctNormalizer()
@@ -204,26 +204,23 @@ class IndicProcessor:
         self._xliterator = UnicodeIndicTransliterator()
 
         self._multispace_regex = re.compile("[ ]{2,}")
-        self._end_bracket_space_punc_regex = re.compile(r"\) ([\.!:?;,])")
         self._digit_space_percent = re.compile(r"(\d) %")
         self._double_quot_punc = re.compile(r"\"([,\.]+)")
         self._digit_nbsp_digit = re.compile(r"(\d) (\d)")
+        self._end_bracket_space_punc_regex = re.compile(r"\) ([\.!:?;,])")
 
         self._URL_PATTERN = r"\b(?<![\w/.])(?:(?:https?|ftp)://)?(?:(?:[\w-]+\.)+(?!\.))(?:[\w/\-?#&=%.]+)+(?!\.\w+)\b"
-        self._EMAIL_PATTERN = r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}"
         self._NUMERAL_PATTERN = r"(~?\d+\.?\d*\s?%?\s?-?\s?~?\d+\.?\d*\s?%|~?\d+%|\d+[-\/.,:']\d+[-\/.,:'+]\d+(?:\.\d+)?|\d+[-\/.:'+]\d+(?:\.\d+)?)"
+        self._EMAIL_PATTERN = r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}"
         self._OTHER_PATTERN = r"[A-Za-z0-9]*[#|@]\w+"
 
-    def set_placeholder_entity_maps(self, placeholder_entity_map):
-        self._current_batch_placeholder_entity_map = placeholder_entity_map
-
-    def _add_single_placeholder_entity_map(self, single_placeholder_entity_map):
-        self._current_batch_placeholder_entity_map.append(single_placeholder_entity_map)
+    def _add_placeholder_entity_map(self, placeholder_entity_map):
+        self._placeholder_entity_maps.append(placeholder_entity_map)
 
     def get_placeholder_entity_maps(self):
-        return self._current_batch_placeholder_entity_map
+        return self._placeholder_entity_maps
 
-    def _punc_norm(self, text):
+    def _punc_norm(self, text) -> str:
         text = (
             text.replace("\r", "")
             .replace("(", " (")
@@ -269,7 +266,7 @@ class IndicProcessor:
         text = self._digit_nbsp_digit.sub(r"\1.\2", text)
         return text.strip()
 
-    def _normalize_indic_numerals(self, line: str):
+    def _normalize_indic_numerals(self, line: str) -> str:
         """
         Normalize the numerals in Indic languages from native script to Roman script (if present).
 
@@ -281,7 +278,7 @@ class IndicProcessor:
         """
         return "".join([self._indic_num_map.get(c, c) for c in line])
 
-    def _wrap_with_placeholders(self, text: str, patterns: list) -> Tuple[str, dict]:
+    def _wrap_with_placeholders(self, text: str, patterns: list) -> str:
         """
         Wraps substrings with matched patterns in the given text with placeholders and returns
         the modified text along with a mapping of the placeholders to their original value.
@@ -291,8 +288,7 @@ class IndicProcessor:
             pattern (list): list of patterns to search for in the input string.
 
         Returns:
-            Tuple[str, dict]: a tuple containing the modified text and a dictionary mapping
-                placeholders to their original values.
+            text (str): a modified text.
         """
 
         serial_no = 1
@@ -355,8 +351,8 @@ class IndicProcessor:
                 serial_no += 1
 
         text = re.sub("\s+", " ", text).replace(">/", ">").replace("]/", "]")
-
-        return text, placeholder_entity_map
+        self._add_placeholder_entity_map(placeholder_entity_map)
+        return text
 
     def _normalize(
         self,
@@ -381,33 +377,12 @@ class IndicProcessor:
             self._OTHER_PATTERN,
         ]
 
-        text = self._normalize_indic_numerals(text.strip("\n"))
+        text = self._normalize_indic_numerals(text.strip())
 
         if self.inference:
-            text, placeholder_entity_map = self._wrap_with_placeholders(text, patterns)
-            self._add_single_placeholder_entity_map(placeholder_entity_map)
+            text = self._wrap_with_placeholders(text, patterns)
 
         return text
-
-    def _split_sentences(self, paragraph: str, lang: str) -> List[str]:
-        """
-        Splits the input text paragraph into sentences. It uses `moses` for English and
-        `indic-nlp` for Indic languages.
-
-        Args:
-            paragraph (str): input text paragraph.
-            lang (str): flores language code.
-
-        Returns:
-            List[str] -> list of sentences.
-        """
-        return (
-            sent_tokenize(paragraph)
-            if lang == "eng_Latn"
-            else sentence_split(
-                paragraph, lang=self._flores_codes[lang], delim_pat=DELIM_PAT_NO_DANDA
-            )
-        )
 
     def _apply_lang_tags(
         self, sents: List[str], src_lang: str, tgt_lang: str, delimiter=" "
@@ -490,11 +465,13 @@ class IndicProcessor:
             batch (List[str]): input list of sentences to preprocess.
             src_lang (str): flores language code of the input text sentences.
             tgt_lang (str): flores language code of the output text sentences.
-            is_target (str): add language tags if false otherwise skip it.
+            is_target (bool): add language tags if false otherwise skip it.
 
         Returns:
             List[str]: a list of preprocessed input text sentences.
         """
+        # reset the placeholder entity map for each batch
+
         normalizer = (
             IndicNormalizerFactory().get_normalizer(self._flores_codes[src_lang])
             if src_lang != "eng_Latn"
@@ -518,7 +495,6 @@ class IndicProcessor:
         sent: str,
         placeholder_entity_map: dict,
         lang: str = "hin_Deva",
-        common_lang: str = "hin_Deva",
     ):
         """
         Postprocesses a single input sentence after the translation generation.
@@ -527,24 +503,23 @@ class IndicProcessor:
             sent (str): input sentence to postprocess.
             placeholder_entity_map (dict): dictionary mapping placeholders to the original entity values.
             lang (str): flores language code of the input sentence.
-            common_lang (str, optional): flores language code of the transliterated language (defaults: hin_Deva).
 
         Returns:
-            str: postprocessed input sentence.
+            text (str): postprocessed input sentence.
         """
 
         lang_code, script_code = lang.split("_")
+        iso_lang = self._flores_codes[lang]
 
         # Fixes for Perso-Arabic scripts
-        # TODO: Move these normalizations inside indic-nlp-library
         if script_code in ["Arab", "Aran"]:
-            # UrduHack adds space before punctuations. Since the model was trained without fixing this issue, let's fix it now
-            sent = sent.replace(" ؟", "؟").replace(" ۔", "۔").replace(" ،", "،")
-            # Kashmiri bugfix for palatalization: https://github.com/AI4Bharat/IndicTrans2/issues/11
-            sent = sent.replace("ٮ۪", "ؠ")
+            sent = (
+                sent.replace(" ؟", "؟")
+                .replace(" ۔", "۔")
+                .replace(" ،", "،")
+                .replace("ٮ۪", "ؠ")
+            )
 
-        # Oriya bug: indic-nlp-library produces ଯ଼ instead of ୟ when converting from Devanagari to Odia
-        # TODO: Find out what's the issue with unicode transliterator for Oriya and fix it
         if lang_code == "ory":
             sent = sent.replace("ଯ଼", "ୟ")
 
@@ -555,10 +530,8 @@ class IndicProcessor:
             self._en_detok.detokenize(sent.split(" "))
             if lang == "eng_Latn"
             else indic_detokenize.trivial_detokenize(
-                self._xliterator.transliterate(
-                    sent, self._flores_codes[common_lang], self._flores_codes[lang]
-                ),
-                self._flores_codes[lang],
+                self._xliterator.transliterate(sent, "hi", iso_lang),
+                iso_lang,
             )
         )
 
@@ -566,7 +539,6 @@ class IndicProcessor:
         self,
         sents: List[str],
         lang: str = "hin_Deva",
-        common_lang: str = "hin_Deva",
     ) -> List[str]:
         """
         Postprocesses a batch of input sentences after the translation generations.
@@ -575,7 +547,6 @@ class IndicProcessor:
             sents (List[str]): batch of translated sentences to postprocess.
             placeholder_entity_map (List[dict]): dictionary mapping placeholders to the original entity values.
             lang (str): flores language code of the input sentences.
-            common_lang (str, optional): flores language code of the transliterated language (defaults: hin_Deva).
 
         Returns:
             List[str]: postprocessed batch of input sentences.
@@ -584,8 +555,11 @@ class IndicProcessor:
         placeholder_entity_maps = self.get_placeholder_entity_maps()
 
         postprocessed_sents = [
-            self._postprocess(sent, placeholder_entity_map, lang, common_lang)
+            self._postprocess(sent, placeholder_entity_map, lang)
             for sent, placeholder_entity_map in zip(sents, placeholder_entity_maps)
         ]
+
+        # reset the placeholder entity map after each batch
+        self._placeholder_entity_maps.clear()
 
         return postprocessed_sents
