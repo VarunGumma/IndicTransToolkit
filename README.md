@@ -20,8 +20,7 @@ pip install --editable ./
 ```python
 import torch
 from transformers import AutoModelForSeq2SeqLM
-from IndicTransTokenizer.utils import IndicProcessor
-from IndicTransTokenizer.tokenizer import IndicTransTokenizer
+from IndicTransTokenizer import IndicProcessor, IndicTransTokenizer
 
 tokenizer = IndicTransTokenizer(direction="en-indic")
 ip = IndicProcessor(inference=True)

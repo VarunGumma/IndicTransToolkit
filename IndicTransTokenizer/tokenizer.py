@@ -95,6 +95,11 @@ class IndicTransTokenizer:
         self.src_spm = self._load_spm(self.src_spm_fp)
         self.tgt_spm = self._load_spm(self.tgt_spm_fp)
 
+        self.unk_token_id = self.encoder[self.unk_token]
+        self.pad_token_id = self.encoder[self.pad_token]
+        self.eos_token_id = self.encoder[self.eos_token]
+        self.bos_token_id = self.encoder[self.bos_token]
+
     def is_special_token(self, x: str):
         return (x == self.pad_token) or (x == self.bos_token) or (x == self.eos_token)
 
