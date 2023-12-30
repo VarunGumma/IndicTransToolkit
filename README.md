@@ -55,7 +55,7 @@ For using the tokenizer to train/fine-tune the model, just set the `inference` a
 
 
 ## Bugs and Contribution
-In case you encounter any bugs or want additional functionalities, please feel free to raise Issues/Pull Requests or contact the authors. 
+Since this a bleeding-edge module, you may encounter broken stuff and import issues once in a while. In case you encounter any bugs or want additional functionalities, please feel free to raise `Issues`/`Pull Requests` or contact the authors. 
 
 
 ## Citation
@@ -72,3 +72,6 @@ If you use our codebase, models or tokenizer, please do cite the following paper
     note={}
 }
 ```
+
+## Note
+This tokenizer module is currently **not** compatible with the [PreTrainedTokenizer](https://huggingface.co/docs/transformers/v4.36.1/en/main_classes/tokenizer#transformers.PreTrainedTokenizer) module from HuggingFace. Hence, we are actively looking for `Pull Requests` to port this tokenizer to HF. Any leads on that front are welcome!
