@@ -1,12 +1,10 @@
 import re
-from nltk.tokenize import sent_tokenize
 from typing import List, Tuple, Union
 
 from indicnlp.tokenize import indic_tokenize, indic_detokenize
 from indicnlp.normalize.indic_normalize import IndicNormalizerFactory
 from sacremoses import MosesPunctNormalizer, MosesTokenizer, MosesDetokenizer
 from indicnlp.transliterate.unicode_transliterate import UnicodeIndicTransliterator
-from indicnlp.tokenize.sentence_tokenize import sentence_split, DELIM_PAT_NO_DANDA
 
 
 class IndicProcessor:
