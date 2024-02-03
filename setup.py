@@ -18,7 +18,7 @@ if version_info < (3, 8):
     exit("Sorry, Python >= 3.8 is required for IndicTransTokenizer.")
 
 
-with open("README.md", "r") as fh:
+with open("README.md", "r", errors="ignore", encoding="utf-8") as fh:
     long_description = fh.read().strip()
 
 version = write_version_py()
@@ -28,7 +28,7 @@ setup(
     version=version,
     author="Varun Gumma",
     author_email="varun230999@gmail.com",
-    description="A simple, consistent and extendable module for IndicTrans2 tokenizer compatible with the HuggingFace models",
+    description="A simple, consistent, and extendable module for IndicTrans2 tokenizer compatible with the HuggingFace models",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/VarunGumma/IndicTransTokenizer",
