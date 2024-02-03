@@ -3,4 +3,4 @@ torch
 sacremoses
 sentencepiece
 transformers
-indic-nlp-library @ git+https://github.com/VarunGumma/indic_nlp_library
+indic-nlp-library-IT2 @ git+https://github.com/VarunGumma/indic_nlp_library
