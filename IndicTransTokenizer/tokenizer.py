@@ -11,15 +11,12 @@ _PATH = os.path.dirname(os.path.realpath(__file__))
 class IndicTransTokenizer:
     def __init__(
         self,
-        src_vocab_fp=None,
-        tgt_vocab_fp=None,
-        src_spm_fp=None,
-        tgt_spm_fp=None,
+        direction=None,
+        model_name=None,
         unk_token="<unk>",
         bos_token="<s>",
         eos_token="</s>",
         pad_token="<pad>",
-        direction="indic-en",
         model_max_length=256,
     ):
         self.model_max_length = model_max_length
@@ -61,26 +58,16 @@ class IndicTransTokenizer:
             "unr_Deva"
         ]
 
-        self.src_vocab_fp = (
-            src_vocab_fp
-            if (src_vocab_fp is not None)
-            else os.path.join(_PATH, direction, "dict.SRC.json")
-        )
-        self.tgt_vocab_fp = (
-            tgt_vocab_fp
-            if (tgt_vocab_fp is not None)
-            else os.path.join(_PATH, direction, "dict.TGT.json")
-        )
-        self.src_spm_fp = (
-            src_spm_fp
-            if (src_spm_fp is not None)
-            else os.path.join(_PATH, direction, "model.SRC")
-        )
-        self.tgt_spm_fp = (
-            tgt_spm_fp
-            if (tgt_spm_fp is not None)
-            else os.path.join(_PATH, direction, "model.TGT")
-        )
+        if model_name is None and direction is None:
+            raise ValueError("Either model_name or direction must be provided!")
+
+        if model_name is not None:
+            direction = self.get_direction(model_name) # model_name overrides direction
+
+        self.src_vocab_fp = os.path.join(_PATH, direction, "dict.SRC.json")
+        self.tgt_vocab_fp = os.path.join(_PATH, direction, "dict.TGT.json")
+        self.src_spm_fp = os.path.join(_PATH, direction, "model.SRC")
+        self.tgt_spm_fp = os.path.join(_PATH, direction, "model.TGT")
 
         self.unk_token = unk_token
         self.pad_token = pad_token
@@ -107,6 +94,10 @@ class IndicTransTokenizer:
         self.pad_token_id = self.encoder[self.pad_token]
         self.eos_token_id = self.encoder[self.eos_token]
         self.bos_token_id = self.encoder[self.bos_token]
+
+    def get_direction(self, model_name: str) -> str:
+        pieces = model_name.split("/")[-1].split("-")
+        return f"{pieces[1]}-{pieces[2]}"
 
     def is_special_token(self, x: str):
         return (x == self.pad_token) or (x == self.bos_token) or (x == self.eos_token)
@@ -228,11 +219,11 @@ class IndicTransTokenizer:
         assert padding in [
             "longest",
             "max_length",
-        ], "padding should be either 'longest' or 'max_length'"
+        ], "Padding should be either 'longest' or 'max_length'"
 
         if not isinstance(batch, list):
             raise TypeError(
-                f"batch must be a list, but current batch is of type {type(batch)}"
+                f"Batch must be a list, but current batch is of type {type(batch)}"
             )
 
         # tokenize the source sentences
