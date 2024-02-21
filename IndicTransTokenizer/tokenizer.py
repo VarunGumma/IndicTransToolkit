@@ -55,14 +55,14 @@ class IndicTransTokenizer:
             "tam_Taml",
             "tel_Telu",
             "urd_Arab",
-            "unr_Deva"
+            "unr_Deva",
         ]
 
         if model_name is None and direction is None:
             raise ValueError("Either model_name or direction must be provided!")
 
         if model_name is not None:
-            direction = self.get_direction(model_name) # model_name overrides direction
+            direction = self.get_direction(model_name)  # model_name overrides direction
 
         self.src_vocab_fp = os.path.join(_PATH, direction, "dict.SRC.json")
         self.tgt_vocab_fp = os.path.join(_PATH, direction, "dict.TGT.json")
@@ -165,15 +165,19 @@ class IndicTransTokenizer:
         """Tokenizes a list of strings into tokens using the source/target vocabulary."""
         return [self.tokenize(line, src) for line in batch]
 
-    def _create_attention_mask(self, ids: List[int], max_seq_len: int) -> List[int]:
+    def _create_attention_mask(self, ids: List[int], max_seq_len: int, src: bool) -> List[int]:
         """Creates a attention mask for the input sequence."""
-        return ([0] * (max_seq_len - len(ids))) + ([1] * (len(ids) + 1))
+        if src:
+            return [0] * (max_seq_len - len(ids)) + [1] * (len(ids) + 1)
+        else:
+            return [1] * (len(ids) + 1) + [0] * (max_seq_len - len(ids))
 
-    def _pad_batch(self, tokens: List[str], max_seq_len: int) -> List[str]:
+    def _pad_batch(self, tokens: List[str], max_seq_len: int, src: bool) -> List[str]:
         """Pads a batch of tokens and adds BOS/EOS tokens."""
-        return (
-            ([self.pad_token] * (max_seq_len - len(tokens))) + tokens + [self.eos_token]
-        )
+        if src:
+            return [self.pad_token] * (max_seq_len - len(tokens)) + tokens + [self.eos_token]
+        else:
+            return tokens + [self.eos_token] + [self.pad_token] * (max_seq_len - len(tokens))
 
     def _decode_line(self, ids: List[int], src: bool) -> List[str]:
         return [self._convert_id_to_token(_id, src) for _id in ids]
@@ -188,8 +192,8 @@ class IndicTransTokenizer:
         self, tokens: List[str], src: bool, max_seq_len: int
     ) -> Tuple[List[int], List[int], int]:
         """Tokenizes a string into tokens and also converts them into integers using source/target vocabulary map."""
-        attention_mask = self._create_attention_mask(tokens, max_seq_len)
-        padded_tokens = self._pad_batch(tokens, max_seq_len)
+        attention_mask = self._create_attention_mask(tokens, max_seq_len, src)
+        padded_tokens = self._pad_batch(tokens, max_seq_len, src)
         input_ids = self._encode_line(padded_tokens, src)
         return input_ids, attention_mask
 
@@ -198,10 +202,7 @@ class IndicTransTokenizer:
         tokens = self._decode_line(ids, src)
         tokens = self._strip_special_tokens(tokens)
         return (
-            self._convert_tokens_to_string(tokens, src)
-            .replace(" ", "")
-            .replace("▁", " ")
-            .strip()
+            self._convert_tokens_to_string(tokens, src).replace(" ", "").replace("▁", " ").strip()
         )
 
     def __call__(
@@ -222,9 +223,7 @@ class IndicTransTokenizer:
         ], "Padding should be either 'longest' or 'max_length'"
 
         if not isinstance(batch, list):
-            raise TypeError(
-                f"Batch must be a list, but current batch is of type {type(batch)}"
-            )
+            raise TypeError(f"Batch must be a list, but current batch is of type {type(batch)}")
 
         # tokenize the source sentences
         batch = self.batch_tokenize(batch, src)
@@ -239,9 +238,7 @@ class IndicTransTokenizer:
 
         input_ids, attention_mask = zip(
             *[
-                self._single_input_preprocessing(
-                    tokens=tokens, src=src, max_seq_len=max_seq_len
-                )
+                self._single_input_preprocessing(tokens=tokens, src=src, max_seq_len=max_seq_len)
                 for tokens in batch
             ]
         )
@@ -256,9 +253,7 @@ class IndicTransTokenizer:
 
         return BatchEncoding(_data, tensor_type=return_tensors)
 
-    def batch_decode(
-        self, batch: Union[list, torch.Tensor], src: bool
-    ) -> List[List[str]]:
+    def batch_decode(self, batch: Union[list, torch.Tensor], src: bool) -> List[List[str]]:
         """Detokenizes a list of integer ids or a tensor into a list of strings using the source/target vocabulary."""
 
         if isinstance(batch, torch.Tensor):
