@@ -1,2 +1,3 @@
 from .tokenizer import IndicTransTokenizer
-from .utils import IndicProcessor
+from .processor import IndicProcessor
+from .evaluate import indic_evaluate
