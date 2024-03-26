@@ -45,6 +45,17 @@ print(outputs)
 >>> ['यह एक परीक्षण वाक्य है।', 'यह एक और लंबा अलग परीक्षण वाक्य है।', 'कृपया 9876543210 पर एक एस. एम. एस. भेजें और 15 अक्टूबर, 2023 तक newemail123@xyz.com पर एक ईमेल भेजें।']
 ```
 
+`indic_evaluate` function is a python implementation of [compute_metrics.sh](https://github.com/AI4Bharat/IndicTrans2/blob/main/compute_metrics.sh)
+```python
+from IndicTransTokenizer.evaluate import indic_evaluate
+
+# this method returns a dictionary with BLEU and ChrF2++ scores with appropriate signatures
+scores = indic_evaluate(tgt_lang=tgt_lang, preds=pred_file, refs=ref_file) 
+
+# alternately, you can pass the list of predictions and references instead of files 
+# scores = indic_evaluate(tgt_lang=tgt_lang, preds=preds, refs=refs)
+```
+
 For using the tokenizer to train/fine-tune the model, just set the `inference` argument of IndicProcessor to `False`.
 
 ## Authors
