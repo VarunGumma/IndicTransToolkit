@@ -1,3 +1,4 @@
 from .tokenizer import IndicTransTokenizer
 from .processor import IndicProcessor
-from .evaluate import indic_evaluate
+from .evaluator import IndicEvaluator
+from .collator import IndicDataCollator

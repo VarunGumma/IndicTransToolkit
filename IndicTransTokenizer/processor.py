@@ -1,4 +1,6 @@
 import re
+from tqdm import tqdm
+from queue import Queue
 from typing import List, Tuple, Union
 
 from indicnlp.tokenize import indic_tokenize, indic_detokenize
@@ -161,7 +163,7 @@ class IndicProcessor:
             "\u0c6f": "9",
         }
 
-        self._placeholder_entity_maps = []
+        self._placeholder_entity_maps = Queue()
 
         self._en_tok = MosesTokenizer(lang="en")
         self._en_normalizer = MosesPunctNormalizer()
@@ -179,11 +181,9 @@ class IndicProcessor:
         self._EMAIL_PATTERN = r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}"
         self._OTHER_PATTERN = r"[A-Za-z0-9]*[#|@]\w+"
 
-    def _add_placeholder_entity_map(self, placeholder_entity_map):
-        self._placeholder_entity_maps.append(placeholder_entity_map)
-
-    def get_placeholder_entity_maps(self):
-        return self._placeholder_entity_maps
+    def get_batches(self, sentences: List[str], batch_size=8):
+        for i in tqdm(range(0, len(sentences), batch_size)):
+            yield sentences[i : i + batch_size]
 
     def _punc_norm(self, text) -> str:
         text = (
@@ -258,7 +258,7 @@ class IndicProcessor:
 
         serial_no = 1
 
-        placeholder_entity_map = dict()
+        placeholder_entity_map = {}
 
         indic_failure_cases = [
             "آی ڈی ",
@@ -268,6 +268,10 @@ class IndicProcessor:
             "आई . डी .",
             "आई. डी. ",
             "आई. डी.",
+            "आय. डी. ",
+            "आय. डी.",
+            "आय . डी . ",
+            "आय . डी .",
             "ऐटि",
             "آئی ڈی ",
             "ᱟᱭᱰᱤ ᱾",
@@ -302,6 +306,9 @@ class IndicProcessor:
                 placeholder_entity_map[f"< ID{serial_no} ]"] = match
                 placeholder_entity_map[f"<ID{serial_no}>"] = match
                 placeholder_entity_map[f"< ID{serial_no} >"] = match
+                placeholder_entity_map[f"[ID{serial_no}]"] = match
+                placeholder_entity_map[f"[ID {serial_no}]"] = match
+                placeholder_entity_map[f"[ ID{serial_no} ]"] = match
 
                 for i in indic_failure_cases:
                     placeholder_entity_map[f"<{i}{serial_no}>"] = match
@@ -309,14 +316,18 @@ class IndicProcessor:
                     placeholder_entity_map[f"< {i} {serial_no} >"] = match
                     placeholder_entity_map[f"<{i} {serial_no}]"] = match
                     placeholder_entity_map[f"< {i} {serial_no} ]"] = match
+                    placeholder_entity_map[f"[{i}{serial_no}]"] = match
                     placeholder_entity_map[f"[{i} {serial_no}]"] = match
+                    placeholder_entity_map[f"[ {i}{serial_no} ]"] = match
                     placeholder_entity_map[f"[ {i} {serial_no} ]"] = match
+                    placeholder_entity_map[f"{i} {serial_no}"] = match
+                    placeholder_entity_map[f"{i}{serial_no}"] = match
 
                 text = text.replace(match, base_placeholder)
                 serial_no += 1
 
         text = re.sub("\s+", " ", text).replace(">/", ">").replace("]/", "]")
-        self._add_placeholder_entity_map(placeholder_entity_map)
+        self._placeholder_entity_maps.put(placeholder_entity_map)
         return text
 
     def _normalize(
@@ -350,8 +361,8 @@ class IndicProcessor:
         return text
 
     def _apply_lang_tags(
-        self, sents: List[str], src_lang: str, tgt_lang: str, delimiter=" "
-    ) -> List[str]:
+        self, sent: str, src_lang: str, tgt_lang: str, delimiter=" "
+    ) -> str:
         """
         Add special tokens indicating source and target language to the start of the each input sentence.
         Each resulting input sentence will have the format: "`{src_lang} {tgt_lang} {input_sentence}`".
@@ -364,7 +375,7 @@ class IndicProcessor:
         Returns:
             List[str]: list of input sentences with the special tokens added to the start.
         """
-        return [f"{src_lang}{delimiter}{tgt_lang}{delimiter}{x.strip()}" for x in sents]
+        return f"{src_lang}{delimiter}{tgt_lang}{delimiter}{sent.strip()}"
 
     def _preprocess(
         self,
@@ -383,7 +394,7 @@ class IndicProcessor:
         Returns:
             sent (str): a preprocessed input text sentence
         """
-        iso_lang = self._flores_codes[lang]
+        iso_lang = self._flores_codes.get(lang, "hi")
         sent = self._punc_norm(sent)
         sent = self._normalize(sent)
 
@@ -398,8 +409,6 @@ class IndicProcessor:
                 )
             )
         elif transliterate:
-            # transliterates from the any specific language to devanagari
-            # which is why we specify lang2_code as "hi".
             processed_sent = self._xliterator.transliterate(
                 " ".join(
                     indic_tokenize.trivial_tokenize(
@@ -410,7 +419,6 @@ class IndicProcessor:
                 "hi",
             ).replace(" ् ", "्")
         else:
-            # we only need to transliterate for joint training
             processed_sent = " ".join(
                 indic_tokenize.trivial_tokenize(
                     normalizer.normalize(sent.strip()), iso_lang
@@ -420,7 +428,11 @@ class IndicProcessor:
         return processed_sent
 
     def preprocess_batch(
-        self, batch: List[str], src_lang: str, tgt_lang: str, is_target: bool = False
+        self,
+        batch: List[str],
+        src_lang: str,
+        tgt_lang: str,
+        is_target: bool = False,
     ) -> List[str]:
         """
         Preprocess an array of sentences by normalizing, tokenization, and possibly transliterating it. It also tokenizes the
@@ -435,10 +447,8 @@ class IndicProcessor:
         Returns:
             List[str]: a list of preprocessed input text sentences.
         """
-        # reset the placeholder entity map for each batch
-
         normalizer = (
-            IndicNormalizerFactory().get_normalizer(self._flores_codes[src_lang])
+            IndicNormalizerFactory().get_normalizer(self._flores_codes.get(src_lang, "hi"))
             if src_lang != "eng_Latn"
             else None
         )
@@ -448,7 +458,10 @@ class IndicProcessor:
         ]
 
         tagged_sents = (
-            self._apply_lang_tags(preprocessed_sents, src_lang, tgt_lang)
+            [
+                self._apply_lang_tags(sent, src_lang, tgt_lang)
+                for sent in preprocessed_sents
+            ]
             if not is_target
             else preprocessed_sents
         )
@@ -458,7 +471,6 @@ class IndicProcessor:
     def _postprocess(
         self,
         sent: str,
-        placeholder_entity_map: dict,
         lang: str = "hin_Deva",
     ):
         """
@@ -472,9 +484,13 @@ class IndicProcessor:
         Returns:
             text (str): postprocessed input sentence.
         """
+        placeholder_entity_map = self._placeholder_entity_maps.get()
+
+        if isinstance(sent, tuple) or isinstance(sent, list):
+            sent = sent[0]
 
         lang_code, script_code = lang.split("_")
-        iso_lang = self._flores_codes[lang]
+        iso_lang = self._flores_codes.get(lang, "hi")
 
         # Fixes for Perso-Arabic scripts
         if script_code in ["Arab", "Aran"]:
@@ -500,11 +516,7 @@ class IndicProcessor:
             )
         )
 
-    def postprocess_batch(
-        self,
-        sents: List[str],
-        lang: str = "hin_Deva",
-    ) -> List[str]:
+    def postprocess_batch(self, sents: List[str], lang: str = "hin_Deva") -> List[str]:
         """
         Postprocesses a batch of input sentences after the translation generations.
 
@@ -517,14 +529,9 @@ class IndicProcessor:
             List[str]: postprocessed batch of input sentences.
         """
 
-        placeholder_entity_maps = self.get_placeholder_entity_maps()
+        postprocessed_sents = [self._postprocess(sent, lang) for sent in zip(sents)]
 
-        postprocessed_sents = [
-            self._postprocess(sent, placeholder_entity_map, lang)
-            for sent, placeholder_entity_map in zip(sents, placeholder_entity_maps)
-        ]
-
-        # reset the placeholder entity map after each batch
-        self._placeholder_entity_maps.clear()
+        # for good reason, empty the placeholder entity map after each batch
+        self._placeholder_entity_maps.queue.clear()
 
         return postprocessed_sents

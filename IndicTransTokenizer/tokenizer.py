@@ -1,6 +1,8 @@
 import os
 import json
 import torch
+
+import warnings
 from transformers import BatchEncoding
 from typing import Dict, List, Tuple, Union
 from sentencepiece import SentencePieceProcessor
@@ -57,6 +59,15 @@ class IndicTransTokenizer:
             "urd_Arab",
             "unr_Deva",
         ]
+
+        deprecation_message = (
+            "This IndicTransTokenizer is deprecated.\n"
+            "The official Tokenizer is available on HF and can be used as follows:\n"
+            "```\nfrom transformers import AutoTokenizer\n"
+            "tokenizer = AutoTokenizer.from_pretrained(model_name)\n```"
+        )
+
+        warnings.warn(deprecation_message, category=DeprecationWarning, stacklevel=2)
 
         if model_name is None and direction is None:
             raise ValueError("Either model_name or direction must be provided!")
