@@ -2,7 +2,6 @@ import numpy as np
 from dataclasses import dataclass
 from typing import Any, Optional, Union
 
-from transformers import DataCollatorForSeq2Seq
 from transformers.utils import PaddingStrategy
 from transformers.tokenization_utils import PreTrainedTokenizerBase
 from transformers.data.data_collator import pad_without_fast_tokenizer_warning

@@ -326,7 +326,7 @@ class IndicProcessor:
                 text = text.replace(match, base_placeholder)
                 serial_no += 1
 
-        text = re.sub("\s+", " ", text).replace(">/", ">").replace("]/", "]")
+        text = re.sub(r"\s+", " ", text).replace(">/", ">").replace("]/", "]")
         self._placeholder_entity_maps.put(placeholder_entity_map)
         return text
 

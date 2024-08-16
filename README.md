@@ -2,6 +2,9 @@
 
 The goal of this repository is to provide a simple, modular, and extendable toolkit for [IndicTrans2](https://github.com/AI4Bharat/IndicTrans2) and be compatible with the HuggingFace models released. 
 
+# Minor Update (v1.0.2)
+- The custom tokenizer is now **removed** from the repository. Please revert to a previous commit ([v1.0.1](https://github.com/VarunGumma/IndicTransTokenizer/tree/0e68fb5872f4d821578a5252f90ad43c9649370f)) to use it. The official, and only tokenizer is available on HF with the models. 
+
 # Major Update (v1.0.0)
 - The [PreTrainedTokenizer](https://huggingface.co/docs/transformers/main_classes/tokenizer) for IndicTrans2 is now available on HF 🎉🎉 Note that, you still need the `IndicProcessor` to pre-process the sentences before tokenization.
 - **In favor of the standard PreTrainedTokenizer, we deprecated the custom tokenizer. However, this custom tokenizer will still be available here for backward compatibility, but no further updates/bug-fixes will be provided.**
@@ -25,7 +28,7 @@ pip install --editable ./
 ```
 
 ## Examples
-For the training usecase, please refer [here](https://github.com/AI4Bharat/IndicTrans2/tree/main/huggingface_interface). _Please do not use the custom tokenizer to train/fine-tune models. Training models with the custom tokenizer is untested and can lead to unexpected results._
+For the training usecase, please refer [here](https://github.com/AI4Bharat/IndicTrans2/tree/main/huggingface_interface).
 
 ### PreTainedTokenizer 
 ```python
@@ -60,46 +63,18 @@ print(outputs)
 >>> ['यह एक परीक्षण वाक्य है।', 'यह एक और लंबा अलग परीक्षण वाक्य है।', 'कृपया 9876543210 पर एक एस. एम. एस. भेजें और 15 अक्टूबर, 2023 तक newemail123@xyz.com पर एक ईमेल भेजें।']
 ```
 
-### Custom Tokenizer (Deprecated)
-```python
-import torch
-from transformers import AutoModelForSeq2SeqLM
-from IndicTransTokenizer import IndicProcessor, IndicTransTokenizer
-
-tokenizer = IndicTransTokenizer(direction="en-indic")
-ip = IndicProcessor(inference=True)
-model = AutoModelForSeq2SeqLM.from_pretrained("ai4bharat/indictrans2-en-indic-dist-200M", trust_remote_code=True)
-
-sentences = [
-    "This is a test sentence.",
-    "This is another longer different test sentence.",
-    "Please send an SMS to 9876543210 and an email on newemail123@xyz.com by 15th October, 2023.",
-]
-
-batch = ip.preprocess_batch(sentences, src_lang="eng_Latn", tgt_lang="hin_Deva")
-batch = tokenizer(batch, src=True, return_tensors="pt")
-
-with torch.inference_mode():
-    outputs = model.generate(**batch, num_beams=5, num_return_sequences=1, max_length=256)
-
-outputs = tokenizer.batch_decode(outputs, src=False)
-outputs = ip.postprocess_batch(outputs, lang="hin_Deva")
-print(outputs)
-
->>> ['यह एक परीक्षण वाक्य है।', 'यह एक और लंबा अलग परीक्षण वाक्य है।', 'कृपया 9876543210 पर एक एस. एम. एस. भेजें और 15 अक्टूबर, 2023 तक newemail123@xyz.com पर एक ईमेल भेजें।']
-```
-
 ### Evaluation
-`IndicEvaluator` is a python implementation of [compute_metrics.sh](https://github.com/AI4Bharat/IndicTrans2/blob/main/compute_metrics.sh)
+- `IndicEvaluator` is a python implementation of [compute_metrics.sh](https://github.com/AI4Bharat/IndicTrans2/blob/main/compute_metrics.sh). 
+- We have found that this python implementation gives slightly lower scores than the original `compute_metrics.sh`. So, please use this function cautiously, and feel free to raise a PR if you have found the bug/fix. 
 ```python
 from IndicTransTokenizer import IndicEvaluator
 
 # this method returns a dictionary with BLEU and ChrF2++ scores with appropriate signatures
-evalutor = IndicEvalutor()
-scores = evalutor.evaluate(tgt_lang=tgt_lang, preds=pred_file, refs=ref_file) 
+evaluator = IndicEvaluator()
+scores = evaluator.evaluate(tgt_lang=tgt_lang, preds=pred_file, refs=ref_file) 
 
-# alternately, you can pass the list of predictions and references instead of files 
-# scores = evalutor.evaluate(tgt_lang=tgt_lang, preds=preds, refs=refs)
+# alternatively, you can pass the list of predictions and references instead of files 
+# scores = evaluator.evaluate(tgt_lang=tgt_lang, preds=preds, refs=refs)
 ```
 
 ### Batching 
