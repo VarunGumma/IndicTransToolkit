@@ -1,9 +1,10 @@
-# IndicTransTokenizer
+# IndicTransToolkit
 
 The goal of this repository is to provide a simple, modular, and extendable toolkit for [IndicTrans2](https://github.com/AI4Bharat/IndicTrans2) and be compatible with the HuggingFace models released. 
 
 # Minor Update (v1.0.2)
-- The custom tokenizer is now **removed** from the repository. Please revert to a previous commit ([v1.0.1](https://github.com/VarunGumma/IndicTransTokenizer/tree/0e68fb5872f4d821578a5252f90ad43c9649370f)) to use it. The official, and only tokenizer is available on HF with the models. 
+- The repository has been renamed to `IndicTransToolkit`.
+- The custom tokenizer is now **removed** from the repository. Please revert to a previous commit ([v1.0.1](https://github.com/VarunGumma/IndicTransToolkit/tree/0e68fb5872f4d821578a5252f90ad43c9649370f)) to use it **(strongly discouraged)**. The official (and only tokenizer) is available on HF along with the models.
 
 # Major Update (v1.0.0)
 - The [PreTrainedTokenizer](https://huggingface.co/docs/transformers/main_classes/tokenizer) for IndicTrans2 is now available on HF 🎉🎉 Note that, you still need the `IndicProcessor` to pre-process the sentences before tokenization.
@@ -21,8 +22,8 @@ The goal of this repository is to provide a simple, modular, and extendable tool
 ## Configuration
  - Editable installation (Note, this may take a while):
 ```bash 
-git clone https://github.com/VarunGumma/IndicTransTokenizer
-cd IndicTransTokenizer
+git clone https://github.com/VarunGumma/IndicTransToolkit
+cd IndicTransToolkit
 
 pip install --editable ./
 ```
@@ -33,7 +34,7 @@ For the training usecase, please refer [here](https://github.com/AI4Bharat/Indic
 ### PreTainedTokenizer 
 ```python
 import torch
-from IndicTransTokenizer import IndicProcessor
+from IndicTransToolkit import IndicProcessor
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
 ip = IndicProcessor(inference=True)
@@ -67,7 +68,7 @@ print(outputs)
 - `IndicEvaluator` is a python implementation of [compute_metrics.sh](https://github.com/AI4Bharat/IndicTrans2/blob/main/compute_metrics.sh). 
 - We have found that this python implementation gives slightly lower scores than the original `compute_metrics.sh`. So, please use this function cautiously, and feel free to raise a PR if you have found the bug/fix. 
 ```python
-from IndicTransTokenizer import IndicEvaluator
+from IndicTransToolkit import IndicEvaluator
 
 # this method returns a dictionary with BLEU and ChrF2++ scores with appropriate signatures
 evaluator = IndicEvaluator()
@@ -89,6 +90,8 @@ for batch in ip.get_batches(source_sentences, batch_size=32):
     # ... decoding
 ```
 
+- For `Python >= 3.12`, you can use the inbuilt batching function,`itertools.batched`, instead of the `get_batches` method. ([docs](https://docs.python.org/3/library/itertools.html#itertools.batched))
+
 ## Authors
  - Varun Gumma (varun230999@gmail.com)
  - Jay Gala (jaygala24@gmail.com)
@@ -101,7 +104,7 @@ Since this a bleeding-edge module, you may encounter broken stuff and import iss
 
 
 ## Citation
-If you use our codebase, models or tokenizer, please do cite the following paper:
+If you use our codebase, or models, please do cite the following paper:
 ```bibtex
 @article{
     gala2023indictrans,
