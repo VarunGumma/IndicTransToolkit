@@ -1,7 +1,7 @@
 # IndicTransToolkit
 
 ## About
-The goal of this repository is to provide a simple, modular, and extendable toolkit for [IndicTrans2](https://github.com/AI4Bharat/IndicTrans2) and be compatible with the HuggingFace models released. 
+The goal of this repository is to provide a simple, modular, and extendable toolkit for [IndicTrans2](https://github.com/AI4Bharat/IndicTrans2) and be compatible with the HuggingFace models released. Please refer to the `CHANGELOG.md` for latest developments.
 
 ## Pre-requisites
  - `Python 3.8+`
@@ -23,7 +23,7 @@ For the training usecase, please refer [here](https://github.com/AI4Bharat/Indic
 ### PreTainedTokenizer 
 ```python
 import torch
-from IndicTransToolkit import IndicProcessor
+from IndicTransToolkit import IndicProcessor # NOW IMPLEMENTED IN CYTHON !!
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
 ip = IndicProcessor(inference=True)
@@ -69,7 +69,7 @@ scores = evaluator.evaluate(tgt_lang=tgt_lang, preds=pred_file, refs=ref_file)
 
 ### Batching 
 ```python
-ip = IndicProcessor(inference=True)
+ip = IndicProcessor(inference=True) # NOW IMPLEMENTED IN CYTHON !!
 
 for batch in ip.get_batches(source_sentences, batch_size=32):
     # perform necessary operations on the batch
