@@ -5,7 +5,6 @@ from setuptools import setup, find_packages
 from Cython.Build import cythonize
 from pkg_resources import parse_requirements
 
-
 def write_version_py():
     version_txt_path = os.path.join("IndicTransToolkit", "version.txt")
     with open(version_txt_path, "r", encoding="utf-8") as f:
@@ -15,7 +14,6 @@ def write_version_py():
     with open(version_py_path, "w", encoding="utf-8") as f:
         f.write(f'__version__ = "{version}"\n')
     return version
-
 
 # Enforce Python >= 3.8
 if version_info < (3, 8):
@@ -30,12 +28,14 @@ version = write_version_py()
 
 # Parse requirements.txt
 req_file = pathlib.Path("requirements.txt")
-requirements = [str(requirement) for requirement in parse_requirements(req_file.open())]
+requirements = [
+    str(requirement) for requirement in parse_requirements(req_file.open())
+]
 
 # Cython files to compile (adjust if your .pyx name differs)
 cython_extensions = cythonize(
     [
-        "IndicTransToolkit/fast_processor.pyx",
+        "IndicTransToolkit/processor.pyx",  
     ],
     compiler_directives={"language_level": "3", "boundscheck": False},
 )
