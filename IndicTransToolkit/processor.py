@@ -1,18 +1,82 @@
-import re
+import regex as re
 from tqdm import tqdm
 from queue import Queue
-from typing import List, Tuple, Union
+from typing import List, Union
 
 from indicnlp.tokenize import indic_tokenize, indic_detokenize
 from indicnlp.normalize.indic_normalize import IndicNormalizerFactory
 from sacremoses import MosesPunctNormalizer, MosesTokenizer, MosesDetokenizer
 from indicnlp.transliterate.unicode_transliterate import UnicodeIndicTransliterator
 
+# Optional parallelization
+from concurrent.futures import ThreadPoolExecutor
+
 
 class IndicProcessor:
+    # =====================
+    # REGEX PRECOMPILATION
+    # =====================
+    _MULTISPACE_REGEX = re.compile(r"[ ]{2,}")
+    _DIGIT_SPACE_PERCENT = re.compile(r"(\d) %")
+    _DOUBLE_QUOT_PUNC = re.compile(r"\"([,\.]+)")
+    _DIGIT_NBSP_DIGIT = re.compile(r"(\d) (\d)")
+    _END_BRACKET_SPACE_PUNC_REGEX = re.compile(r"\) ([\.!:?;,])")
+
+    _URL_PATTERN = re.compile(
+        r"\b(?<![\w/.])(?:(?:https?|ftp)://)?(?:(?:[\w-]+\.)+(?!\.))(?:[\w/\-?#&=%.]+)+(?!\.\w+)\b"
+    )
+    _NUMERAL_PATTERN = re.compile(
+        r"(~?\d+\.?\d*\s?%?\s?-?\s?~?\d+\.?\d*\s?%|~?\d+%|\d+[-\/.,:']\d+[-\/.,:'+]\d+(?:\.\d+)?|\d+[-\/.:'+]\d+(?:\.\d+)?)"
+    )
+    _EMAIL_PATTERN = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}")
+    _OTHER_PATTERN = re.compile(r"[A-Za-z0-9]*[#|@]\w+")
+
+    # Consolidate many small punctuation replacements into regex pairs for single-pass sub
+    _PUNC_REPLACEMENTS = [
+        (re.compile(r"\r"), ""),  # remove carriage returns
+        (re.compile(r"\(\s*"), "("),  # fix bracket spacing (opening)
+        (re.compile(r"\s*\)"), ")"),  # fix bracket spacing (closing)
+        (re.compile(r"\s:\s?"), ":"),
+        (re.compile(r"\s;\s?"), ";"),
+        (re.compile(r"[`´‘‚’]"), "'"),
+        (re.compile(r"[„“”«»]"), '"'),
+        (re.compile(r"[–—]"), "-"),
+        (re.compile(r"\.\.\."), "..."),
+        (re.compile(r" %"), "%"),  # remove non-breaking space before percent
+        (re.compile(r"nº "), "nº "),
+        (re.compile(r" ºC"), " ºC"),
+        (re.compile(r" [?!;]"), lambda m: m.group(0).strip()),
+        (re.compile(r", "), ", "),
+    ]
+
+    # "ID" translations for placeholders
+    _INDIC_FAILURE_CASES = [
+        "آی ڈی ",
+        "ꯑꯥꯏꯗꯤ",
+        "आईडी",
+        "आई . डी . ",
+        "आई . डी .",
+        "आई. डी. ",
+        "आई. डी.",
+        "आय. डी. ",
+        "आय. डी.",
+        "आय . डी . ",
+        "आय . डी .",
+        "ऐटि",
+        "آئی ڈی ",
+        "ᱟᱭᱰᱤ ᱾",
+        "आयडी",
+        "ऐडि",
+        "आइडि",
+        "ᱟᱭᱰᱤ",
+    ]
+
     def __init__(self, inference=True):
         self.inference = inference
 
+        # ==============================
+        # FLORES -> ISO LANGUAGE CODES
+        # ==============================
         self._flores_codes = {
             "asm_Beng": "as",
             "awa_Deva": "hi",
@@ -50,9 +114,13 @@ class IndicProcessor:
             "unr_Deva": "hi",
         }
 
-        self._indic_num_map = {
+        # ==============================
+        # CREATING DIGITS TRANSLATION TABLE
+        # (combines your _indic_num_map into str.translate)
+        # ==============================
+        indic_digits_map = {}
+        digits_dict = {
             "\u09e6": "0",
-            "0": "0",
             "\u0ae6": "0",
             "\u0ce6": "0",
             "\u0966": "0",
@@ -63,7 +131,6 @@ class IndicProcessor:
             "\u1c50": "0",
             "\u06f0": "0",
             "\u09e7": "1",
-            "1": "1",
             "\u0ae7": "1",
             "\u0967": "1",
             "\u0ce7": "1",
@@ -74,7 +141,6 @@ class IndicProcessor:
             "\u1c51": "1",
             "\u0c67": "1",
             "\u09e8": "2",
-            "2": "2",
             "\u0ae8": "2",
             "\u0968": "2",
             "\u0ce8": "2",
@@ -85,7 +151,6 @@ class IndicProcessor:
             "\u1c52": "2",
             "\u0c68": "2",
             "\u09e9": "3",
-            "3": "3",
             "\u0ae9": "3",
             "\u0969": "3",
             "\u0ce9": "3",
@@ -96,7 +161,6 @@ class IndicProcessor:
             "\u1c53": "3",
             "\u0c69": "3",
             "\u09ea": "4",
-            "4": "4",
             "\u0aea": "4",
             "\u096a": "4",
             "\u0cea": "4",
@@ -107,7 +171,6 @@ class IndicProcessor:
             "\u1c54": "4",
             "\u0c6a": "4",
             "\u09eb": "5",
-            "5": "5",
             "\u0aeb": "5",
             "\u096b": "5",
             "\u0ceb": "5",
@@ -118,7 +181,6 @@ class IndicProcessor:
             "\u1c55": "5",
             "\u0c6b": "5",
             "\u09ec": "6",
-            "6": "6",
             "\u0aec": "6",
             "\u096c": "6",
             "\u0cec": "6",
@@ -129,7 +191,6 @@ class IndicProcessor:
             "\u1c56": "6",
             "\u0c6c": "6",
             "\u09ed": "7",
-            "7": "7",
             "\u0aed": "7",
             "\u096d": "7",
             "\u0ced": "7",
@@ -140,7 +201,6 @@ class IndicProcessor:
             "\u1c57": "7",
             "\u0c6d": "7",
             "\u09ee": "8",
-            "8": "8",
             "\u0aee": "8",
             "\u096e": "8",
             "\u0cee": "8",
@@ -151,7 +211,6 @@ class IndicProcessor:
             "\u1c58": "8",
             "\u0c6e": "8",
             "\u09ef": "9",
-            "9": "9",
             "\u0aef": "9",
             "\u096f": "9",
             "\u0cef": "9",
@@ -162,146 +221,119 @@ class IndicProcessor:
             "\u1c59": "9",
             "\u0c6f": "9",
         }
+        for k, v in digits_dict.items():
+            indic_digits_map[ord(k)] = v
+        # Also map ASCII '0'-'9' to themselves (optional, ensures no break)
+        for c in range(ord("0"), ord("9") + 1):
+            indic_digits_map[c] = chr(c)
 
+        self._digits_translation_table = indic_digits_map
+
+        # ==============================
+        # PLACEHOLDER QUEUE
+        # ==============================
         self._placeholder_entity_maps = Queue()
 
+        # ==============================
+        # MOSES FOR ENGLISH
+        # ==============================
         self._en_tok = MosesTokenizer(lang="en")
         self._en_normalizer = MosesPunctNormalizer()
         self._en_detok = MosesDetokenizer(lang="en")
+
+        # ==============================
+        # TRANSLITERATOR
+        # ==============================
         self._xliterator = UnicodeIndicTransliterator()
 
-        self._multispace_regex = re.compile("[ ]{2,}")
-        self._digit_space_percent = re.compile(r"(\d) %")
-        self._double_quot_punc = re.compile(r"\"([,\.]+)")
-        self._digit_nbsp_digit = re.compile(r"(\d) (\d)")
-        self._end_bracket_space_punc_regex = re.compile(r"\) ([\.!:?;,])")
+        # ==============================
+        # CACHE FOR NORMALIZERS
+        # ==============================
+        self._normalizer_cache = {}
 
-        self._URL_PATTERN = r"\b(?<![\w/.])(?:(?:https?|ftp)://)?(?:(?:[\w-]+\.)+(?!\.))(?:[\w/\-?#&=%.]+)+(?!\.\w+)\b"
-        self._NUMERAL_PATTERN = r"(~?\d+\.?\d*\s?%?\s?-?\s?~?\d+\.?\d*\s?%|~?\d+%|\d+[-\/.,:']\d+[-\/.,:'+]\d+(?:\.\d+)?|\d+[-\/.:'+]\d+(?:\.\d+)?)"
-        self._EMAIL_PATTERN = r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}"
-        self._OTHER_PATTERN = r"[A-Za-z0-9]*[#|@]\w+"
+    # =======================================================
+    # CACHED NORMALIZER ACCESS
+    # =======================================================
+    def _get_normalizer(self, iso_code: str):
+        """
+        Return a cached normalizer for the given iso_code.
+        """
+        if iso_code not in self._normalizer_cache:
+            self._normalizer_cache[iso_code] = IndicNormalizerFactory().get_normalizer(
+                iso_code
+            )
+        return self._normalizer_cache[iso_code]
 
+    # =======================================================
+    # BATCHES
+    # =======================================================
     def get_batches(self, sentences: List[str], batch_size=8):
-        for i in tqdm(range(0, len(sentences), batch_size)):
+        """
+        Generate batches from a list of sentences.
+        """
+        for i in range(0, len(sentences), batch_size):
             yield sentences[i : i + batch_size]
 
-    def _punc_norm(self, text) -> str:
-        text = (
-            text.replace("\r", "")
-            .replace("(", " (")
-            .replace(")", ") ")
-            .replace("( ", "(")
-            .replace(" )", ")")
-            .replace(" :", ":")
-            .replace(" ;", ";")
-            .replace("`", "'")
-            .replace("„", '"')
-            .replace("“", '"')
-            .replace("”", '"')
-            .replace("–", "-")
-            .replace("—", " - ")
-            .replace("´", "'")
-            .replace("‘", "'")
-            .replace("‚", "'")
-            .replace("’", "'")
-            .replace("''", '"')
-            .replace("´´", '"')
-            .replace("…", "...")
-            .replace(" « ", ' "')
-            .replace("« ", '"')
-            .replace("«", '"')
-            .replace(" » ", '" ')
-            .replace(" »", '"')
-            .replace("»", '"')
-            .replace(" %", "%")
-            .replace("nº ", "nº ")
-            .replace(" :", ":")
-            .replace(" ºC", " ºC")
-            .replace(" cm", " cm")
-            .replace(" ?", "?")
-            .replace(" !", "!")
-            .replace(" ;", ";")
-            .replace(", ", ", ")
-        )
+    # =======================================================
+    # PUNCTUATION NORMALIZATION
+    # =======================================================
+    def _punc_norm(self, text: str) -> str:
+        """
+        Apply precompiled regex-based punctuation replacements in fewer passes.
+        """
+        # local ref to reduce repeated self lookups
+        replacements = self._PUNC_REPLACEMENTS
 
-        text = self._multispace_regex.sub(" ", text)
-        text = self._end_bracket_space_punc_regex.sub(r")\1", text)
-        text = self._digit_space_percent.sub(r"\1%", text)
-        text = self._double_quot_punc.sub(r'\1"', text)
-        text = self._digit_nbsp_digit.sub(r"\1.\2", text)
+        for pattern, replacement in replacements:
+            text = pattern.sub(replacement, text)
+
+        # final special-case regex substitutions
+        text = self._MULTISPACE_REGEX.sub(" ", text)
+        text = self._END_BRACKET_SPACE_PUNC_REGEX.sub(r")\1", text)
+        text = self._DIGIT_SPACE_PERCENT.sub(r"\1%", text)
+        text = self._DOUBLE_QUOT_PUNC.sub(r'\1"', text)
+        text = self._DIGIT_NBSP_DIGIT.sub(r"\1.\2", text)
         return text.strip()
 
-    def _normalize_indic_numerals(self, line: str) -> str:
+    # =======================================================
+    # WRAP PLACEHOLDERS
+    # =======================================================
+    def _wrap_with_placeholders(self, text: str) -> str:
         """
-        Normalize the numerals in Indic languages from native script to Roman script (if present).
-
-        Args:
-            line (str): an input string with Indic numerals to be normalized.
-
-        Returns:
-            str: an input string with the all Indic numerals normalized to Roman script.
+        Wrap substrings with matched patterns in the text with placeholders.
+        The placeholder map is enqueued in _placeholder_entity_maps.
         """
-        return "".join([self._indic_num_map.get(c, c) for c in line])
-
-    def _wrap_with_placeholders(self, text: str, patterns: list) -> str:
-        """
-        Wraps substrings with matched patterns in the given text with placeholders and returns
-        the modified text along with a mapping of the placeholders to their original value.
-
-        Args:
-            text (str): an input string which needs to be wrapped with the placeholders.
-            pattern (list): list of patterns to search for in the input string.
-
-        Returns:
-            text (str): a modified text.
-        """
-
         serial_no = 1
-
         placeholder_entity_map = {}
 
-        indic_failure_cases = [
-            "آی ڈی ",
-            "ꯑꯥꯏꯗꯤ",
-            "आईडी",
-            "आई . डी . ",
-            "आई . डी .",
-            "आई. डी. ",
-            "आई. डी.",
-            "आय. डी. ",
-            "आय. डी.",
-            "आय . डी . ",
-            "आय . डी .",
-            "ऐटि",
-            "آئی ڈی ",
-            "ᱟᱭᱰᱤ ᱾",
-            "आयडी",
-            "ऐडि",
-            "आइडि",
-            "ᱟᱭᱰᱤ",
-        ]
+        # local references
+        url_pattern = self._URL_PATTERN
+        numeral_pattern = self._NUMERAL_PATTERN
+        email_pattern = self._EMAIL_PATTERN
+        other_pattern = self._OTHER_PATTERN
+        indic_failure_cases = self._INDIC_FAILURE_CASES
+
+        # order of searching
+        patterns = [email_pattern, url_pattern, numeral_pattern, other_pattern]
 
         for pattern in patterns:
-            matches = set(re.findall(pattern, text))
+            matches = set(pattern.findall(text))
 
-            # wrap common match with placeholder tags
             for match in matches:
-                if pattern == self._URL_PATTERN:
-                    # Avoids false positive URL matches for names with initials.
+                # Additional checks for short placeholders
+                if pattern is url_pattern:
                     if len(match.replace(".", "")) < 4:
                         continue
-                if pattern == self._NUMERAL_PATTERN:
-                    # Short numeral patterns do not need placeholder based handling.
+                if pattern is numeral_pattern:
                     if (
                         len(match.replace(" ", "").replace(".", "").replace(":", ""))
                         < 4
                     ):
                         continue
 
-                # Set of Translations of "ID" in all the suppported languages have been collated.
-                # This has been added to deal with edge cases where placeholders might get translated.
                 base_placeholder = f"<ID{serial_no}>"
 
+                # Populate placeholder variants
                 placeholder_entity_map[f"<ID{serial_no}]"] = match
                 placeholder_entity_map[f"< ID{serial_no} ]"] = match
                 placeholder_entity_map[f"<ID{serial_no}>"] = match
@@ -323,6 +355,7 @@ class IndicProcessor:
                     placeholder_entity_map[f"{i} {serial_no}"] = match
                     placeholder_entity_map[f"{i}{serial_no}"] = match
 
+                # Replace match in text
                 text = text.replace(match, base_placeholder)
                 serial_no += 1
 
@@ -330,163 +363,135 @@ class IndicProcessor:
         self._placeholder_entity_maps.put(placeholder_entity_map)
         return text
 
-    def _normalize(
-        self,
-        text: str,
-    ) -> Tuple[str, dict]:
+    # =======================================================
+    # NORMALIZE TEXT
+    # =======================================================
+    def _normalize(self, text: str) -> str:
         """
-        Normalizes and wraps the spans of input string with placeholder tags. It first normalizes
-        the Indic numerals in the input string to Roman script. Later, it uses the input string with normalized
-        Indic numerals to wrap the spans of text matching the pattern with placeholder tags.
-
-        Args:
-            text (str): input string.
-            pattern (list): list of patterns to search for in the input string.
-
-        Returns:
-            text (str): the modified text
+        Normalizes numerals in one pass, optionally wrapping placeholders.
         """
-        patterns = [
-            self._EMAIL_PATTERN,
-            self._URL_PATTERN,
-            self._NUMERAL_PATTERN,
-            self._OTHER_PATTERN,
-        ]
-
-        text = self._normalize_indic_numerals(text.strip())
+        # single-pass digit translation
+        text = text.translate(self._digits_translation_table)
 
         if self.inference:
-            text = self._wrap_with_placeholders(text, patterns)
+            text = self._wrap_with_placeholders(text)
 
         return text
 
-    def _apply_lang_tags(
-        self, sent: str, src_lang: str, tgt_lang: str, delimiter=" "
-    ) -> str:
-        """
-        Add special tokens indicating source and target language to the start of the each input sentence.
-        Each resulting input sentence will have the format: "`{src_lang} {tgt_lang} {input_sentence}`".
-
-        Args:
-            sent (str): input sentence to be translated.
-            src_lang (str): flores lang code of the input sentence.
-            tgt_lang (str): flores lang code in which the input sentence will be translated.
-
-        Returns:
-            List[str]: list of input sentences with the special tokens added to the start.
-        """
-        return f"{src_lang}{delimiter}{tgt_lang}{delimiter}{sent.strip()}"
-
+    # =======================================================
+    # PREPROCESS (SINGLE SENTENCE)
+    # =======================================================
     def _preprocess(
         self,
         sent: str,
-        lang: str,
+        src_lang: str,
+        tgt_lang: str,
         normalizer: Union[MosesPunctNormalizer, IndicNormalizerFactory],
+        is_target: bool = False,
     ) -> str:
         """
-        Preprocess an input text sentence by normalizing, tokenization, and possibly transliterating it.
-
-        Args:
-            sent (str): input text sentence to preprocess.
-            normalizer (Union[MosesPunctNormalizer, IndicNormalizerFactory]): an object that performs normalization on the text.
-            lang (str): flores language code of the input text sentence.
-
-        Returns:
-            sent (str): a preprocessed input text sentence
+        Preprocess a single sentence: punctuation norm, numeral norm, tokenization, optional transliteration,
+        and optional insertion of language tags (if not target).
         """
-        iso_lang = self._flores_codes.get(lang, "hi")
-        sent = self._punc_norm(sent)
-        sent = self._normalize(sent)
+        # local references
+        punc_norm = self._punc_norm
+        _normalize = self._normalize
+        en_tok = self._en_tok
+        en_norm = self._en_normalizer
+        flores_codes = self._flores_codes
+        xlit = self._xliterator
 
-        transliterate = True
-        if lang.split("_")[1] in ["Arab", "Aran", "Olck", "Mtei", "Latn"]:
-            transliterate = False
+        iso_lang = flores_codes.get(src_lang, "hi")
 
+        # 1) Punctuation normalization
+        sent = punc_norm(sent)
+        # 2) Numeral & placeholders
+        sent = _normalize(sent)
+
+        # Decide if we need to transliterate or not
+        script_part = src_lang.split("_")[1]
+        transliterate = script_part not in ["Arab", "Aran", "Olck", "Mtei", "Latn"]
+
+        # 3) Tokenize (English vs. Indic)
         if iso_lang == "en":
-            processed_sent = " ".join(
-                self._en_tok.tokenize(
-                    self._en_normalizer.normalize(sent.strip()), escape=False
-                )
-            )
-        elif transliterate:
-            processed_sent = self._xliterator.transliterate(
-                " ".join(
-                    indic_tokenize.trivial_tokenize(
-                        normalizer.normalize(sent.strip()), iso_lang
-                    )
-                ),
-                iso_lang,
-                "hi",
-            ).replace(" ् ", "्")
+            sent = en_norm.normalize(sent.strip())
+            processed_sent = " ".join(en_tok.tokenize(sent, escape=False))
         else:
-            processed_sent = " ".join(
+            # Normalize + tokenize for Indic
+            tokenized_sent = " ".join(
                 indic_tokenize.trivial_tokenize(
                     normalizer.normalize(sent.strip()), iso_lang
                 )
             )
+            if transliterate:
+                # Transliterate from iso_lang -> "hi"
+                processed_sent = xlit.transliterate(
+                    tokenized_sent, iso_lang, "hi"
+                ).replace(" ् ", "्")
+            else:
+                processed_sent = tokenized_sent
 
-        return processed_sent
+        processed_sent = processed_sent.strip()
+        # If not the target, add src/tgt language tags
+        return (
+            f"{src_lang} {tgt_lang} {processed_sent}"
+            if not is_target
+            else processed_sent
+        )
 
+    # =======================================================
+    # PREPROCESS BATCH
+    # =======================================================
     def preprocess_batch(
         self,
         batch: List[str],
         src_lang: str,
-        tgt_lang: str,
+        tgt_lang: str = None,
         is_target: bool = False,
+        visualize: bool = False,
     ) -> List[str]:
         """
-        Preprocess an array of sentences by normalizing, tokenization, and possibly transliterating it. It also tokenizes the
-        normalized text sequences using sentence piece tokenizer and also adds language tags.
-
-        Args:
-            batch (List[str]): input list of sentences to preprocess.
-            src_lang (str): flores language code of the input text sentences.
-            tgt_lang (str): flores language code of the output text sentences.
-            is_target (bool): add language tags if false otherwise skip it.
-
-        Returns:
-            List[str]: a list of preprocessed input text sentences.
+        Preprocess an array of sentences (normalize, tokenize, transliterate).
+        Optionally parallelize if large batches exist.
         """
-        normalizer = (
-            IndicNormalizerFactory().get_normalizer(self._flores_codes.get(src_lang, "hi"))
-            if src_lang != "eng_Latn"
-            else None
-        )
+        iso_code = self._flores_codes.get(src_lang, "hi")
+        normalizer = None
+        if src_lang != "eng_Latn":
+            normalizer = self._get_normalizer(iso_code)
 
-        preprocessed_sents = [
-            self._preprocess(sent, src_lang, normalizer) for sent in batch
+        if visualize:
+            iterator = tqdm(
+                batch,
+                unit="line",
+                total=len(batch),
+                desc=f" | > Pre-processing {src_lang}",
+            )
+        else:
+            iterator = batch
+
+        return [
+            self._preprocess(sent, src_lang, tgt_lang, normalizer, is_target)
+            for sent in iterator
         ]
 
-        tagged_sents = (
-            [
-                self._apply_lang_tags(sent, src_lang, tgt_lang)
-                for sent in preprocessed_sents
-            ]
-            if not is_target
-            else preprocessed_sents
-        )
-
-        return tagged_sents
-
-    def _postprocess(
-        self,
-        sent: str,
-        lang: str = "hin_Deva",
-    ):
+    # =======================================================
+    # POSTPROCESS (SINGLE SENTENCE)
+    # =======================================================
+    def _postprocess(self, sent: str, lang: str = "hin_Deva") -> str:
         """
-        Postprocesses a single input sentence after the translation generation.
-
-        Args:
-            sent (str): input sentence to postprocess.
-            placeholder_entity_map (dict): dictionary mapping placeholders to the original entity values.
-            lang (str): flores language code of the input sentence.
-
-        Returns:
-            text (str): postprocessed input sentence.
+        Postprocess a single sentence:
+          - get the correct placeholder map from the queue
+          - fix scripts for Perso-Arabic
+          - restore placeholders
+          - detokenize (English or Indic with transliteration if needed)
         """
+        # local references
         placeholder_entity_map = self._placeholder_entity_maps.get()
+        xlit = self._xliterator
+        en_detok = self._en_detok
 
-        if isinstance(sent, tuple) or isinstance(sent, list):
+        if isinstance(sent, (tuple, list)):
+            # If it was passed as a tuple from e.g. zip, take the first item
             sent = sent[0]
 
         lang_code, script_code = lang.split("_")
@@ -500,38 +505,45 @@ class IndicProcessor:
                 .replace(" ،", "،")
                 .replace("ٮ۪", "ؠ")
             )
-
+        # Oriya fix
         if lang_code == "ory":
             sent = sent.replace("ଯ଼", "ୟ")
 
+        # Restore placeholders
         for k, v in placeholder_entity_map.items():
             sent = sent.replace(k, v)
 
-        return (
-            self._en_detok.detokenize(sent.split(" "))
-            if lang == "eng_Latn"
-            else indic_detokenize.trivial_detokenize(
-                self._xliterator.transliterate(sent, "hi", iso_lang),
-                iso_lang,
+        # Detokenize for output
+        if lang == "eng_Latn":
+            return en_detok.detokenize(sent.split(" "))
+        else:
+            # Transliterate from 'hi' to iso_lang if needed
+            return indic_detokenize.trivial_detokenize(
+                xlit.transliterate(sent, "hi", iso_lang), iso_lang
             )
-        )
 
-    def postprocess_batch(self, sents: List[str], lang: str = "hin_Deva") -> List[str]:
+    # =======================================================
+    # POSTPROCESS BATCH
+    # =======================================================
+    def postprocess_batch(
+        self, sents: List[str], lang: str = "hin_Deva", visualize: bool = False
+    ) -> List[str]:
         """
-        Postprocesses a batch of input sentences after the translation generations.
-
-        Args:
-            sents (List[str]): batch of translated sentences to postprocess.
-            placeholder_entity_map (List[dict]): dictionary mapping placeholders to the original entity values.
-            lang (str): flores language code of the input sentences.
-
-        Returns:
-            List[str]: postprocessed batch of input sentences.
+        Postprocess a batch of sentences: restore placeholders, fix scripts,
+        optionally parallelize.
         """
+        if visualize:
+            iterator = tqdm(
+                sents,
+                unit="line",
+                total=len(sents),
+                desc=f" | > Post-processing {lang}",
+            )
+        else:
+            iterator = sents
 
-        postprocessed_sents = [self._postprocess(sent, lang) for sent in zip(sents)]
+        results = [self._postprocess(sent, lang) for sent in iterator]
 
-        # for good reason, empty the placeholder entity map after each batch
+        # Clear the placeholder queue so it's fresh for next usage
         self._placeholder_entity_maps.queue.clear()
-
-        return postprocessed_sents
+        return results

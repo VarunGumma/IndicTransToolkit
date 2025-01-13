@@ -1,18 +1,7 @@
 # IndicTransToolkit
 
+## About
 The goal of this repository is to provide a simple, modular, and extendable toolkit for [IndicTrans2](https://github.com/AI4Bharat/IndicTrans2) and be compatible with the HuggingFace models released. 
-
-# Minor Update (v1.0.2)
-- The repository has been renamed to `IndicTransToolkit`.
-- The custom tokenizer is now **removed** from the repository. Please revert to a previous commit ([v1.0.1](https://github.com/VarunGumma/IndicTransToolkit/tree/0e68fb5872f4d821578a5252f90ad43c9649370f)) to use it **(strongly discouraged)**. The official (and only tokenizer) is available on HF along with the models.
-
-# Major Update (v1.0.0)
-- The [PreTrainedTokenizer](https://huggingface.co/docs/transformers/main_classes/tokenizer) for IndicTrans2 is now available on HF 🎉🎉 Note that, you still need the `IndicProcessor` to pre-process the sentences before tokenization.
-- **In favor of the standard PreTrainedTokenizer, we deprecated the custom tokenizer. However, this custom tokenizer will still be available here for backward compatibility, but no further updates/bug-fixes will be provided.**
-- The `indic_evaluate` function is now consolidated into a concrete `IndicEvaluator` class.
-- The data collation function for training is consolidated into a concrete `IndicDataCollator` class.
-- A simple batching method is now available in the `IndicProcessor`.
-
 
 ## Pre-requisites
  - `Python 3.8+`
@@ -47,7 +36,7 @@ sentences = [
     "Please send an SMS to 9876543210 and an email on newemail123@xyz.com by 15th October, 2023.",
 ]
 
-batch = ip.preprocess_batch(sentences, src_lang="eng_Latn", tgt_lang="hin_Deva")
+batch = ip.preprocess_batch(sentences, src_lang="eng_Latn", tgt_lang="hin_Deva", visualize=False) # set it to visualize=True to print a progress bar
 batch = tokenizer(batch, padding="longest", truncation=True, max_length=256, return_tensors="pt")
 
 with torch.inference_mode():
