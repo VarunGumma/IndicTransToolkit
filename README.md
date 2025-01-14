@@ -14,7 +14,7 @@ The goal of this repository is to provide a simple, modular, and extendable tool
 git clone https://github.com/VarunGumma/IndicTransToolkit
 cd IndicTransToolkit
 
-pip install --editable ./
+pip install --editable ./ # this would now build the cython-based processor
 ```
 
 ## Examples
@@ -66,20 +66,6 @@ scores = evaluator.evaluate(tgt_lang=tgt_lang, preds=pred_file, refs=ref_file)
 # alternatively, you can pass the list of predictions and references instead of files 
 # scores = evaluator.evaluate(tgt_lang=tgt_lang, preds=preds, refs=refs)
 ```
-
-### Batching 
-```python
-ip = IndicProcessor(inference=True) # NOW IMPLEMENTED IN CYTHON !!
-
-for batch in ip.get_batches(source_sentences, batch_size=32):
-    # perform necessary operations on the batch
-    # ... pre-processing
-    # ... tokenization 
-    # ... generation 
-    # ... decoding
-```
-
-- For `Python >= 3.12`, you can use the inbuilt batching function,`itertools.batched`, instead of the `get_batches` method. ([docs](https://docs.python.org/3/library/itertools.html#itertools.batched))
 
 ## Authors
  - Varun Gumma (varun230999@gmail.com)

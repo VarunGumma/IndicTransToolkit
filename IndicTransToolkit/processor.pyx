@@ -1,29 +1,20 @@
-#cython: language_level=3, boundscheck=False
+# cython: language_level=3, boundscheck=False, cdivision=True, wraparound=False
 """
-Cython version of the IndicProcessor class with fixes for compilation errors.
-Functionality is nearly identical to the original Python code, subject to Cython constraints.
+Cython version of the IndicProcessor class with optimizations for performance.
+Only preprocess_batch and postprocess_batch are exposed as cpdef methods.
+All other methods are internal (cdef) for optimized Cython usage.
 """
 
 import regex as re
 from tqdm import tqdm
 from queue import Queue
 from typing import List, Dict, Union
-# We can't cimport these libraries directly because they don't offer C-extensions.
-# We'll just import them as Python objects.
+
+# Importing Python objects since these libraries don't offer C-extensions
 from indicnlp.tokenize import indic_tokenize, indic_detokenize
 from indicnlp.normalize.indic_normalize import IndicNormalizerFactory
 from sacremoses import MosesPunctNormalizer, MosesTokenizer, MosesDetokenizer
 from indicnlp.transliterate.unicode_transliterate import UnicodeIndicTransliterator
-
-
-#########
-# NOTE:
-# 1) We removed cdef type annotations for Queue, MosesTokenizer, etc. 
-#    because they are pure Python objects with no C-level definitions.
-# 2) We replaced the generator method get_batches with a normal Python method 
-#    or a staticmethod returning a generator. 
-# 3) We removed cdef (object, object) pair usage.
-#########
 
 
 cdef class IndicProcessor:
@@ -47,7 +38,7 @@ cdef class IndicProcessor:
     cdef dict _flores_codes
     cdef dict _digits_translation_table
 
-    # We store placeholder maps in a Python Queue (treated as `object` for Cython)
+    # Placeholder maps stored in a Python Queue (treated as `object` for Cython)
     cdef object _placeholder_entity_maps
 
     # Tools (also Python objects)
@@ -58,7 +49,7 @@ cdef class IndicProcessor:
 
     def __cinit__(self, bint inference=True):
         """
-        Constructor for FastIndicProcessor. Called once at object allocation.
+        Constructor for IndicProcessor. Initializes all necessary components.
         """
         self.inference = inference
 
@@ -106,7 +97,7 @@ cdef class IndicProcessor:
         # INDIC DIGIT TRANSLATION (str.translate)
         ##############################
         self._digits_translation_table = {}
-        digits_dict = {
+        cdef dict digits_dict = {
             "\u09e6": "0", "\u0ae6": "0", "\u0ce6": "0", "\u0966": "0",
             "\u0660": "0", "\uabf0": "0", "\u0b66": "0", "\u0a66": "0",
             "\u1c50": "0", "\u06f0": "0",
@@ -228,29 +219,24 @@ cdef class IndicProcessor:
             "ᱟᱭᱰᱤ",
         ]
 
-    # Instead of a cdef method using 'yield', we can use a normal Python method:
-    def get_batches(self, sentences: List[str], batch_size: int = 8):
-        """
-        Generator for batches from a large list of sentences.
-        (Cython doesn't support yield in cdef/cpdef methods)
-        """
-        for i in range(0, len(sentences), batch_size):
-            yield sentences[i : i + batch_size]
-
-    @staticmethod
-    def _apply_punc_replacements(text: str, replacements: list) -> str:
+    # Internal Method: Apply punctuation replacements
+    cdef str _apply_punc_replacements(self, str text, list replacements) except *:
         """
         Apply a list of (pattern, replacement) in sequence to text.
         """
-        for pair in replacements:
+        cdef int i
+        cdef tuple pair
+        for i in range(len(replacements)):
+            pair = replacements[i]
             text = pair[0].sub(pair[1], text)
         return text
 
+    # Internal Method: Punctuation Normalization
     cdef str _punc_norm(self, str text) except *:
         """
         Consolidate punctuation normalization in fewer passes.
         """
-        # 1) Apply replacements (call static method as a normal function)
+        # 1) Apply replacements
         text = self._apply_punc_replacements(text, self._PUNC_REPLACEMENTS)
 
         # 2) Additional patterns
@@ -261,10 +247,11 @@ cdef class IndicProcessor:
         text = self._DIGIT_NBSP_DIGIT.sub(r"\1.\2", text)
         return text.strip()
 
+    # Internal Method: Wrap Text with Placeholders
     cdef str _wrap_with_placeholders(self, str text) except *:
         """
         Wrap substrings with matched patterns in the text with placeholders.
-        We store the placeholder map in the queue for retrieval in postprocessing.
+        Store the placeholder map in the queue for retrieval in postprocessing.
         """
         cdef int serial_no = 1
         cdef dict placeholder_entity_map = {}
@@ -276,7 +263,9 @@ cdef class IndicProcessor:
         ]
         cdef object pattern
         cdef set matches
-        cdef str match, base_placeholder, i
+        cdef str match
+        cdef str base_placeholder
+        cdef int i
 
         for pattern in patterns:
             matches = set(pattern.findall(text))
@@ -290,45 +279,53 @@ cdef class IndicProcessor:
                         continue
 
                 base_placeholder = f"<ID{serial_no}>"
-                placeholder_entity_map[f"<ID{serial_no}]"] = match
-                placeholder_entity_map[f"< ID{serial_no} ]"] = match
+                # Map various placeholder formats to the matched text
                 placeholder_entity_map[f"<ID{serial_no}>"] = match
                 placeholder_entity_map[f"< ID{serial_no} >"] = match
                 placeholder_entity_map[f"[ID{serial_no}]"] = match
-                placeholder_entity_map[f"[ID {serial_no}]"] = match
                 placeholder_entity_map[f"[ ID{serial_no} ]"] = match
+                placeholder_entity_map[f"[ID {serial_no}]"] = match
+                placeholder_entity_map[f"<ID{serial_no}]"] = match
+                placeholder_entity_map[f"< ID{serial_no}]"] = match
+                placeholder_entity_map[f"<ID{serial_no} ]"] = match
 
-                for i in self._INDIC_FAILURE_CASES:
-                    placeholder_entity_map[f"<{i}{serial_no}>"] = match
-                    placeholder_entity_map[f"< {i}{serial_no} >"] = match
-                    placeholder_entity_map[f"< {i} {serial_no} >"] = match
-                    placeholder_entity_map[f"<{i} {serial_no}]"] = match
-                    placeholder_entity_map[f"< {i} {serial_no} ]"] = match
-                    placeholder_entity_map[f"[{i}{serial_no}]"] = match
-                    placeholder_entity_map[f"[{i} {serial_no}]"] = match
-                    placeholder_entity_map[f"[ {i}{serial_no} ]"] = match
-                    placeholder_entity_map[f"[ {i} {serial_no} ]"] = match
-                    placeholder_entity_map[f"{i} {serial_no}"] = match
-                    placeholder_entity_map[f"{i}{serial_no}"] = match
+                # Handle Indic failure cases
+                for i in range(len(self._INDIC_FAILURE_CASES)):
+                    indic_case = self._INDIC_FAILURE_CASES[i]
+                    placeholder_entity_map[f"<{indic_case}{serial_no}>"] = match
+                    placeholder_entity_map[f"< {indic_case}{serial_no} >"] = match
+                    placeholder_entity_map[f"< {indic_case} {serial_no} >"] = match
+                    placeholder_entity_map[f"<{indic_case} {serial_no}]"] = match
+                    placeholder_entity_map[f"< {indic_case} {serial_no} ]"] = match
+                    placeholder_entity_map[f"[{indic_case}{serial_no}]"] = match
+                    placeholder_entity_map[f"[{indic_case} {serial_no}]"] = match
+                    placeholder_entity_map[f"[ {indic_case}{serial_no} ]"] = match
+                    placeholder_entity_map[f"[ {indic_case} {serial_no} ]"] = match
+                    placeholder_entity_map[f"{indic_case} {serial_no}"] = match
+                    placeholder_entity_map[f"{indic_case}{serial_no}"] = match
 
+                # Replace the match with the base placeholder
                 text = text.replace(match, base_placeholder)
                 serial_no += 1
 
+        # Clean up any remaining placeholder artifacts
         text = re.sub(r"\s+", " ", text).replace(">/", ">").replace("]/", "]")
         self._placeholder_entity_maps.put(placeholder_entity_map)
         return text
 
+    # Internal Method: Normalize Text
     cdef str _normalize(self, str text) except *:
         """
         Normalizes numerals and optionally wraps placeholders.
         """
-        # single-pass digit translation
+        # Single-pass digit translation
         text = text.translate(self._digits_translation_table)
 
         if self.inference:
             text = self._wrap_with_placeholders(text)
         return text
 
+    # Internal Method: Indic Tokenize and Transliterate
     cdef str _do_indic_tokenize_and_transliterate(
         self,
         str sentence,
@@ -341,7 +338,8 @@ cdef class IndicProcessor:
         """
         cdef str normed
         cdef list tokens
-        cdef str joined, xlated
+        cdef str joined
+        cdef str xlated
 
         normed = normalizer.normalize(sentence.strip())
         tokens = indic_tokenize.trivial_tokenize(normed, iso_lang)
@@ -352,6 +350,7 @@ cdef class IndicProcessor:
             xlated = xlated.replace(" ् ", "्")
         return xlated
 
+    # Internal Method: Preprocess a Single Sentence
     cdef str _preprocess(
         self,
         str sent,
@@ -361,18 +360,21 @@ cdef class IndicProcessor:
         bint is_target
     ) except *:
         """
-        Preprocess a single sentence: punctuation norm, numeral norm, tokenization, transliteration, language tags.
+        Preprocess a single sentence: punctuation normalization, numeral normalization,
+        tokenization, transliteration, and adding language tags if necessary.
         """
         cdef str iso_lang = self._flores_codes.get(src_lang, "hi")
         cdef str script_part = src_lang.split("_")[1]
         cdef bint do_transliterate = True
-        cdef str e_strip, e_norm
-        cdef object e_tokens
+        cdef str e_strip
+        cdef str e_norm
+        cdef list e_tokens
         cdef str processed_sent
 
-        # 1) punctuation normalization
+        # 1) Punctuation normalization
         sent = self._punc_norm(sent)
-        # 2) numerals & placeholders
+
+        # 2) Numerals & placeholders
         sent = self._normalize(sent)
 
         if script_part in ["Arab", "Aran", "Olck", "Mtei", "Latn"]:
@@ -394,37 +396,7 @@ cdef class IndicProcessor:
         else:
             return processed_sent
 
-    cpdef list preprocess_batch(
-        self,
-        List[str] batch,
-        str src_lang,
-        str tgt_lang=None,
-        bint is_target=False,
-        bint visualize=False
-    ):
-        """
-        Preprocess an array of sentences (normalize, tokenize, transliterate).
-        We do this serially here (no yield, no concurrency).
-        """
-        cdef object normalizer = None
-        cdef str iso_code = self._flores_codes.get(src_lang, "hi")
-        cdef object iterator
-        cdef list results
-
-        if src_lang != "eng_Latn":
-            normalizer = IndicNormalizerFactory().get_normalizer(iso_code)
-
-        if visualize:
-            iterator = tqdm(batch, total=len(batch), desc=f" | > Pre-processing {src_lang}", unit="line")
-        else:
-            iterator = batch
-
-        results = []
-        for s in iterator:
-            results.append(self._preprocess(s, src_lang, tgt_lang, normalizer, is_target))
-
-        return results
-
+    # Internal Method: Postprocess a Single Sentence
     cdef str _postprocess(self, object sent, str lang) except *:
         """
         Postprocess a single sentence:
@@ -434,9 +406,14 @@ cdef class IndicProcessor:
         4) Detokenize
         """
         cdef dict placeholder_entity_map
-        cdef str lang_code, script_code, iso_lang, k, v, xlated
+        cdef str lang_code
+        cdef str script_code
+        cdef str iso_lang
+        cdef str k
+        cdef str v
+        cdef str xlated
 
-        # unwrap if sent is a tuple
+        # Unwrap if sent is a tuple or list
         if isinstance(sent, (tuple, list)):
             sent = sent[0]
 
@@ -444,7 +421,7 @@ cdef class IndicProcessor:
         lang_code, script_code = lang.split("_", 1)
         iso_lang = self._flores_codes.get(lang, "hi")
 
-        # Fix for Perso-Arabic
+        # Fix for Perso-Arabic scripts
         if script_code in ["Arab", "Aran"]:
             sent = (
                 sent.replace(" ؟", "؟")
@@ -457,17 +434,48 @@ cdef class IndicProcessor:
         if lang_code == "ory":
             sent = sent.replace("ଯ଼", "ୟ")
 
-        # placeholders
+        # Restore placeholders
         for k, v in placeholder_entity_map.items():
             sent = sent.replace(k, v)
 
-        # detokenize
+        # Detokenize
         if lang == "eng_Latn":
             return self._en_detok.detokenize(sent.split(" "))
         else:
             xlated = self._xliterator.transliterate(sent, "hi", iso_lang)
             return indic_detokenize.trivial_detokenize(xlated, iso_lang)
 
+    # Exposed Method: Preprocess a Batch of Sentences
+    cpdef list preprocess_batch(
+        self,
+        List[str] batch,
+        str src_lang,
+        str tgt_lang=None,
+        bint is_target=False,
+        bint visualize=False
+    ):
+        """
+        Preprocess an array of sentences (normalize, tokenize, transliterate).
+        This is exposed for external use.
+        """
+        cdef object normalizer = None
+        cdef str iso_code = self._flores_codes.get(src_lang, "hi")
+        cdef object iterator
+        cdef list results
+        cdef int i
+        cdef int n = len(batch)
+
+        if src_lang != "eng_Latn":
+            normalizer = IndicNormalizerFactory().get_normalizer(iso_code)
+
+        if visualize:
+            iterator = tqdm(batch, total=n, desc=f" | > Pre-processing {src_lang}", unit="line")
+        else:
+            iterator = batch
+
+        return [self._preprocess(s, src_lang, tgt_lang, normalizer, is_target) for s in iterator]
+
+    # Exposed Method: Postprocess a Batch of Sentences
     cpdef list postprocess_batch(
         self,
         List[str] sents,
@@ -476,20 +484,20 @@ cdef class IndicProcessor:
     ):
         """
         Postprocess a batch of sentences:
-        restore placeholders, fix script issues, detokenize.
+        Restore placeholders, fix script issues, and detokenize.
+        This is exposed for external use.
         """
         cdef object iterator
         cdef list results
+        cdef int i
+        cdef int n = len(sents)
 
         if visualize:
-            iterator = tqdm(sents, total=len(sents), desc=f" | > Post-processing {lang}", unit="line")
+            iterator = tqdm(sents, total=n, desc=f" | > Post-processing {lang}", unit="line")
         else:
             iterator = sents
 
-        results = []
-        for s in iterator:
-            results.append(self._postprocess(s, lang))
-
-        # clear placeholders
+        results = [self._postprocess(s, lang) for s in iterator]
         self._placeholder_entity_maps.queue.clear()
+        
         return results
