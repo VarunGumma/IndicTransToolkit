@@ -1,7 +1,7 @@
 # Changelog
 
 # 📢 Release v1.0.3
-- 🚨 The `IndicProcessor` class has been re-written in [Cython](https://github.com/cython/cython) for faster implementation. This gives us atleast a `+10 lines/s`.
+- 🚨 The `IndicProcessor` class has been re-written in [Cython](https://github.com/cython/cython) for faster implementation. This gives us atleast `+10 lines/s`.
 - A new `visualize` argument as been added to `preprocess_batch` to track the processing with a `tqdm` bar.
 
 # 📢 Release v1.0.2

@@ -14,7 +14,10 @@ The goal of this repository is to provide a simple, modular, and extendable tool
 git clone https://github.com/VarunGumma/IndicTransToolkit
 cd IndicTransToolkit
 
-pip install --editable ./ # this would now build the cython-based processor
+pip install --editable . --use-pep517 # required for pip >= 25.0
+
+# in case it fails, try:
+# pip install --editable . --use-pep517 --config-settings editable_mode=compat
 ```
 
 ## Examples

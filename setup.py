@@ -28,14 +28,12 @@ version = write_version_py()
 
 # Parse requirements.txt
 req_file = pathlib.Path("requirements.txt")
-requirements = [
-    str(requirement) for requirement in parse_requirements(req_file.open())
-]
+requirements = [str(req) for req in parse_requirements(req_file.open())]
 
 # Cython files to compile (adjust if your .pyx name differs)
 cython_extensions = cythonize(
     [
-        "IndicTransToolkit/processor.pyx",  
+        "IndicTransToolkit/processor.pyx",
     ],
     compiler_directives={"language_level": "3", "boundscheck": False},
 )
@@ -49,7 +47,7 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/VarunGumma/IndicTransToolkit",
-    packages=find_packages(),  # auto-detect IndicTransToolkit, etc.
+    packages=find_packages(),  # Auto-detect packages
     license="MIT",
     classifiers=[
         "Programming Language :: Python :: 3",
