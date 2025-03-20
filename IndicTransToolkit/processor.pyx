@@ -417,7 +417,9 @@ cdef class IndicProcessor:
         if isinstance(sent, (tuple, list)):
             sent = sent[0]
 
-        placeholder_entity_map = self._placeholder_entity_maps.get()
+        placeholder_entity_map = {}
+        if not self.placeholder_entity_maps.empty():
+            placeholder_entity_map = self._placeholder_entity_maps.get()
         lang_code, script_code = lang.split("_", 1)
         iso_lang = self._flores_codes.get(lang, "hi")
 
