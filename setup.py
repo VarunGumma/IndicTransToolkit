@@ -16,8 +16,8 @@ def write_version_py():
     return version
 
 # Enforce Python >= 3.8
-if version_info < (3, 8):
-    exit("Sorry, Python >= 3.8 is required for IndicTransToolkit.")
+if version_info < (3, 10):
+    exit("Sorry, Python >= 3.10 is required for IndicTransToolkit.")
 
 # Read long description from README
 with open("README.md", "r", errors="ignore", encoding="utf-8") as fh:

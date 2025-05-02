@@ -4,8 +4,7 @@
 The goal of this repository is to provide a simple, modular, and extendable toolkit for [IndicTrans2](https://github.com/AI4Bharat/IndicTrans2) and be compatible with the HuggingFace models released. Please refer to the `CHANGELOG.md` for latest developments.
 
 ## Pre-requisites
- - `Python 3.8+`
- - [Indic NLP Library](https://github.com/VarunGumma/indic_nlp_library)
+ - `Python 3.10+`
  - Other requirements as listed in `requirements.txt`
 
 ## Configuration
@@ -20,6 +19,10 @@ pip install --editable . --use-pep517 # required for pip >= 25.0
 # pip install --editable . --use-pep517 --config-settings editable_mode=compat
 ```
 
+ - Common Installation Failures:
+    - _Version incompatibilty_: We highly recommend using the latest versions of `numpy>=2.1`, `torch>=2.5` and `transformers>=4.51` for using this toolkit. We cannot guarantee the stability of the module below these requirements. We try our best to uphold backward compatibility, but prioritize any major releases of the dependencies. 
+
+
 ## Examples
 For the training usecase, please refer [here](https://github.com/AI4Bharat/IndicTrans2/tree/main/huggingface_interface).
 
@@ -28,10 +31,11 @@ For the training usecase, please refer [here](https://github.com/AI4Bharat/Indic
 import torch
 from IndicTransToolkit.processor import IndicProcessor # NOW IMPLEMENTED IN CYTHON !!
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
+device = "cuda" is torch.cuda.is_available() else "cpu"
 
 ip = IndicProcessor(inference=True)
 tokenizer = AutoTokenizer.from_pretrained("ai4bharat/indictrans2-en-indic-dist-200M", trust_remote_code=True)
-model = AutoModelForSeq2SeqLM.from_pretrained("ai4bharat/indictrans2-en-indic-dist-200M", trust_remote_code=True)
+model = AutoModelForSeq2SeqLM.from_pretrained("ai4bharat/indictrans2-en-indic-dist-200M", trust_remote_code=True).to(device)
 
 sentences = [
     "This is a test sentence.",
@@ -40,16 +44,12 @@ sentences = [
 ]
 
 batch = ip.preprocess_batch(sentences, src_lang="eng_Latn", tgt_lang="hin_Deva", visualize=False) # set it to visualize=True to print a progress bar
-batch = tokenizer(batch, padding="longest", truncation=True, max_length=256, return_tensors="pt")
+batch = tokenizer(batch, padding="longest", truncation=True, max_length=256, return_tensors="pt").to(device)
 
 with torch.inference_mode():
     outputs = model.generate(**batch, num_beams=5, num_return_sequences=1, max_length=256)
 
-with tokenizer.as_target_tokenizer():
-    # This scoping is absolutely necessary, as it will instruct the tokenizer to tokenize using the target vocabulary.
-    # Failure to use this scoping will result in gibberish/unexpected predictions as the output will be de-tokenized with the source vocabulary instead.
-    outputs = tokenizer.batch_decode(outputs, skip_special_tokens=True, clean_up_tokenization_spaces=True)
-
+outputs = tokenizer.batch_decode(outputs, skip_special_tokens=True, clean_up_tokenization_spaces=True)
 outputs = ip.postprocess_batch(outputs, lang="hin_Deva")
 print(outputs)
 
