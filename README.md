@@ -56,6 +56,9 @@ print(outputs)
 >>> ['यह एक परीक्षण वाक्य है।', 'यह एक और लंबा अलग परीक्षण वाक्य है।', 'कृपया 9876543210 पर एक एस. एम. एस. भेजें और 15 अक्टूबर, 2023 तक newemail123@xyz.com पर एक ईमेल भेजें।']
 ```
 
+- In case `num_return_sequences` > 1 in the generation config, please set the corresponding value `num_return_sequences` argument in the `postprocess_batch` method as well. By default, the value is 1. 
+- For `batch_size=N` and `num_return_sequences=M`, the processoer output is then similar to the original decoded tokenizer output, i.e. a list of $N \times M$ sentences, where the $T_i$ ... $T_{i+M}$ are translations of $S_i$.
+
 ### Evaluation
 - `IndicEvaluator` is a python implementation of [compute_metrics.sh](https://github.com/AI4Bharat/IndicTrans2/blob/main/compute_metrics.sh). 
 - We have found that this python implementation gives slightly lower scores than the original `compute_metrics.sh`. So, please use this function cautiously, and feel free to raise a PR if you have found the bug/fix. 

@@ -209,7 +209,11 @@ cdef class IndicProcessor:
             "आय. डी. ",
             "आय. डी.",
             "आय . डी . ",
-            "आय . डी .",
+            "आय . डी ."
+            "आइ . डी . ",
+            "आइ . डी .",
+            "आइ. डी. ",
+            "आइ. डी.",
             "ऐटि",
             "آئی ڈی ",
             "ᱟᱭᱰᱤ ᱾",
@@ -288,6 +292,15 @@ cdef class IndicProcessor:
                 placeholder_entity_map[f"<ID{serial_no}]"] = match
                 placeholder_entity_map[f"< ID{serial_no}]"] = match
                 placeholder_entity_map[f"<ID{serial_no} ]"] = match
+
+                placeholder_entity_map[f"<id{serial_no}>"] = match
+                placeholder_entity_map[f"< id{serial_no} >"] = match
+                placeholder_entity_map[f"[id{serial_no}]"] = match
+                placeholder_entity_map[f"[ id{serial_no} ]"] = match
+                placeholder_entity_map[f"[id {serial_no}]"] = match
+                placeholder_entity_map[f"<id{serial_no}]"] = match
+                placeholder_entity_map[f"< id{serial_no}]"] = match
+                placeholder_entity_map[f"<id{serial_no} ]"] = match
 
                 # Handle Indic failure cases
                 for i in range(len(self._INDIC_FAILURE_CASES)):
@@ -397,15 +410,14 @@ cdef class IndicProcessor:
             return processed_sent
 
     # Internal Method: Postprocess a Single Sentence
-    cdef str _postprocess(self, object sent, str lang) except *:
+    cdef str _postprocess(self, object sent, str lang, dict placeholder_entity_map=None) except *:
         """
         Postprocess a single sentence:
-        1) Pull placeholder map from queue
+        1) Use provided placeholder map or pull from queue
         2) Fix scripts for Perso-Arabic
         3) Restore placeholders
         4) Detokenize
         """
-        cdef dict placeholder_entity_map
         cdef str lang_code
         cdef str script_code
         cdef str iso_lang
@@ -417,7 +429,10 @@ cdef class IndicProcessor:
         if isinstance(sent, (tuple, list)):
             sent = sent[0]
 
-        placeholder_entity_map = self._placeholder_entity_maps.get()
+        # Use provided map or get from queue
+        if placeholder_entity_map is None:
+            placeholder_entity_map = self._placeholder_entity_maps.get()
+            
         lang_code, script_code = lang.split("_", 1)
         iso_lang = self._flores_codes.get(lang, "hi")
 
@@ -480,24 +495,44 @@ cdef class IndicProcessor:
         self,
         List[str] sents,
         str lang="hin_Deva",
-        bint visualize=False
+        bint visualize=False,
+        int num_return_sequences=1
     ):
         """
         Postprocess a batch of sentences:
         Restore placeholders, fix script issues, and detokenize.
         This is exposed for external use.
+        
+        Args:
+            sents: List of sentences to postprocess
+            lang: Target language code
+            visualize: Whether to show progress bar
+            num_return_sequences: Number of sequences returned per input
         """
         cdef object iterator
-        cdef list results
-        cdef int i
+        cdef list results = []
+        cdef list placeholder_maps = []
+        cdef dict current_map
+        cdef int i, j
         cdef int n = len(sents)
-
+        cdef int num_inputs = n // num_return_sequences
+        
+        # First, collect all placeholder maps from the queue
+        for i in range(num_inputs):
+            placeholder_maps.append(self._placeholder_entity_maps.get())
+        
         if visualize:
-            iterator = tqdm(sents, total=n, desc=f" | > Post-processing {lang}", unit="line")
+            iterator = tqdm(enumerate(sents), total=n, desc=f" | > Post-processing {lang}", unit="line")
         else:
-            iterator = sents
+            iterator = enumerate(sents)
 
-        results = [self._postprocess(s, lang) for s in iterator]
+        # Process each sentence with the appropriate placeholder map
+        for i, sent in iterator:
+            # Determine which placeholder map to use
+            map_idx = i // num_return_sequences
+            current_map = placeholder_maps[map_idx]
+            results.append(self._postprocess(sent, lang, current_map))
+        
         self._placeholder_entity_maps.queue.clear()
         
         return results

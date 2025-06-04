@@ -5,6 +5,7 @@ from setuptools import setup, find_packages
 from Cython.Build import cythonize
 from pkg_resources import parse_requirements
 
+
 def write_version_py():
     version_txt_path = os.path.join("IndicTransToolkit", "version.txt")
     with open(version_txt_path, "r", encoding="utf-8") as f:
@@ -14,6 +15,7 @@ def write_version_py():
     with open(version_py_path, "w", encoding="utf-8") as f:
         f.write(f'__version__ = "{version}"\n')
     return version
+
 
 # Enforce Python >= 3.8
 if version_info < (3, 10):
