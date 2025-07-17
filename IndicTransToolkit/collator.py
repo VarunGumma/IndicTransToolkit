@@ -87,7 +87,9 @@ class IndicDataCollator:
 
                 # Ensure consistent numpy array output
                 if isinstance(current_labels, list):
-                    feature["labels"] = np.array(current_labels + padding, dtype=np.int64)
+                    feature["labels"] = np.array(
+                        current_labels + padding, dtype=np.int64
+                    )
                 else:
                     feature["labels"] = np.concatenate(
                         [
