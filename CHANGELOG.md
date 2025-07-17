@@ -1,5 +1,8 @@
 # Changelog
 
+# 📢 Release v1.0.5
+- 🔧 Optimized and refactored the code for `IndicDataCollator` and `IndicEvaluator`
+
 # 📢 Release v1.0.4
 - 🐛 Bug fix for [Issue #18](https://github.com/VarunGumma/IndicTransToolkit/issues/18). In case of mulitple generations per source sentence, the map now applies to all targets. 
 
