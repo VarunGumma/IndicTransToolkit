@@ -1,15 +1,46 @@
-[build-system]
-requires = [
-    "setuptools>=68.2.2",
-    "wheel",
-    "Cython",
+[project]
+name = "IndicTransToolkit"
+version = "1.1.0"
+description = "A simple, consistent, and extendable module for IndicTrans2 tokenizer compatible with HuggingFace models."
+authors = [
+    { name = "Varun Gumma", email = "varun230999@gmail.com" }
 ]
-build-backend = "setuptools.build_meta"
+repository = "https://github.com/VarunGumma/IndicTransToolkit"
+license = { text = "MIT" }
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "torch",
+    "cython",
+    "sacremoses",
+    "sentencepiece",
+    "transformers",
+    "sacrebleu",
+    "indic-nlp-library-itt"
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent"
+]
+
+[tool.poetry]
+packages = [
+    { include = "IndicTransToolkit" }
+]
+include = [
+    { path = "IndicTransToolkit/processor.c", format = ["sdist"] },
+    { path = "IndicTransToolkit/processor.pyx", format = ["sdist"] },
+    { path = "IndicTransToolkit/*.so", format = ["wheel"] }
+]
+
+[tool.poetry.group.dev.dependencies]
+pytest = "*"
+black = "*"
 
 [tool.black]
-# Black configuration for code formatting
 line-length = 88
-target-version = ['py38']
+target-version = ["py310"]
 exclude = '''
 /(
     \.git
@@ -23,3 +54,7 @@ exclude = '''
   | dist
 )/
 '''
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0", "Cython"]
+build-backend = "poetry.core.masonry.api"
