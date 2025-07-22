@@ -1,4 +1,4 @@
-from setuptools import setup, find_packages
+from setuptools import setup
 from Cython.Build import cythonize
 
 # Read long description from README
@@ -31,14 +31,13 @@ cython_extensions = cythonize(
 
 setup(
     name="IndicTransToolkit",
-    version=version,
     author="Varun Gumma",
     author_email="varun230999@gmail.com",
-    description="A simple, consistent, and extendable module for IndicTrans2 tokenizer compatible with HuggingFace models",
+    description="A simple, consistent, and extendable module for IndicTrans2 compatible with HF models",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/VarunGumma/IndicTransToolkit",
-    packages=find_packages(),
+    packages=["IndicTransToolkit"],
     license="MIT",
     classifiers=[
         "Programming Language :: Python :: 3",
@@ -49,5 +48,6 @@ setup(
     install_requires=install_requires,
     extras_require=extras_require,
     ext_modules=cython_extensions,
+    version=version,
     zip_safe=False,
 )
