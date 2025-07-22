@@ -2,13 +2,13 @@ import numpy as np
 from dataclasses import dataclass
 from typing import Any, Optional, Union, List, Dict
 
-from transformers.utils import PaddingStrategy
-from transformers.tokenization_utils import PreTrainedTokenizerBase
-from transformers.data.data_collator import pad_without_fast_tokenizer_warning
-
 
 @dataclass
 class IndicDataCollator:
+    from transformers.utils import PaddingStrategy
+    from transformers.tokenization_utils import PreTrainedTokenizerBase
+    from transformers.data.data_collator import pad_without_fast_tokenizer_warning
+
     tokenizer: PreTrainedTokenizerBase
     model: Optional[Any] = None
     padding: Union[bool, str, PaddingStrategy] = True

@@ -10,12 +10,9 @@ license = { text = "MIT" }
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "torch",
     "cython",
+    "regex",
     "sacremoses",
-    "sentencepiece",
-    "transformers",
-    "sacrebleu",
     "indic-nlp-library-itt"
 ]
 classifiers = [
@@ -33,6 +30,18 @@ include = [
     { path = "IndicTransToolkit/processor.pyx", format = ["sdist"] },
     { path = "IndicTransToolkit/*.so", format = ["wheel"] }
 ]
+
+# Optional/extra dependencies (for pip install -e .[<extra>] or poetry install --extras ...)
+[tool.poetry.dependencies]
+torch = { version = "*", optional = true }
+transformers = { version = "*", optional = true }
+sacrebleu = { version = "*", optional = true }
+
+[tool.poetry.extras]
+torch = ["torch"]
+transformers = ["transformers"]
+sacrebleu = ["sacrebleu"]
+all = ["torch", "transformers", "sacrebleu"]
 
 [tool.poetry.group.dev.dependencies]
 pytest = "*"
