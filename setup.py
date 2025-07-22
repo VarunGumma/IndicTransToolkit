@@ -1,11 +1,53 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 from Cython.Build import cythonize
+
+# Read long description from README
+with open("README.md", "r", errors="ignore", encoding="utf-8") as fh:
+    long_description = fh.read().strip()
+
+# version
+version = "1.1.0"
+
+# Fixed core dependencies
+install_requires = [
+    "cython",
+    "sacremoses",
+    "indic-nlp-library-itt",
+]
+
+# Optional dependencies for extras
+extras_require = {
+    "torch": ["torch"],
+    "transformers": ["transformers"],
+    "sacrebleu": ["sacrebleu"],
+    "all": ["torch", "transformers", "sacrebleu"],
+}
+
+# Cython extensions
+cython_extensions = cythonize(
+    ["IndicTransToolkit/processor.pyx"],
+    compiler_directives={"language_level": "3", "boundscheck": False},
+)
 
 setup(
     name="IndicTransToolkit",
-    ext_modules=cythonize(
-        ["IndicTransToolkit/processor.pyx"],
-        compiler_directives={"language_level": "3"}
-    ),
-    packages=["IndicTransToolkit"],
+    version=version,
+    author="Varun Gumma",
+    author_email="varun230999@gmail.com",
+    description="A simple, consistent, and extendable module for IndicTrans2 tokenizer compatible with HuggingFace models",
+    long_description=long_description,
+    long_description_content_type="text/markdown",
+    url="https://github.com/VarunGumma/IndicTransToolkit",
+    packages=find_packages(),
+    license="MIT",
+    classifiers=[
+        "Programming Language :: Python :: 3",
+        "License :: OSI Approved :: MIT License",
+        "Operating System :: OS Independent",
+    ],
+    python_requires=">=3.10",
+    install_requires=install_requires,
+    extras_require=extras_require,
+    ext_modules=cython_extensions,
+    zip_safe=False,
 )

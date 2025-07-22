@@ -1,56 +1,15 @@
-[project]
-name = "IndicTransToolkit"
-version = "1.1.0"
-description = "A simple, consistent, and extendable module for IndicTrans2 tokenizer compatible with HuggingFace models."
-authors = [
-    { name = "Varun Gumma", email = "varun230999@gmail.com" }
-]
-repository = "https://github.com/VarunGumma/IndicTransToolkit"
-license = { text = "MIT" }
-readme = "README.md"
-requires-python = ">=3.10"
-dependencies = [
-    "cython",
-    "sacremoses",
-    "sentencepiece",
-    "indic-nlp-library-itt"
-]
-classifiers = [
-    "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
-    "Operating System :: OS Independent"
-]
-
-[optional-dependencies]
-torch = ["torch"]
-transformers = ["transformers"]
-sacrebleu = ["sacrebleu"]
-all = ["torch", "transformers", "sacrebleu"]
-
-[project.urls]
-Homepage = "https://github.com/VarunGumma/IndicTransToolkit"
-Repository = "https://github.com/VarunGumma/IndicTransToolkit"
-
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["IndicTransToolkit*"]
-
-[tool.setuptools.package-data]
-IndicTransToolkit = ["*.pyx", "*.c", "*.so"]
-
 [build-system]
-requires = ["setuptools>=68.2.2", "wheel", "Cython"]
+requires = [
+    "setuptools>=68.2.2",
+    "wheel",
+    "Cython",
+]
 build-backend = "setuptools.build_meta"
 
-[project.optional-dependencies]
-torch = ["torch"]
-transformers = ["transformers"]
-sacrebleu = ["sacrebleu"]
-all = ["torch", "transformers", "sacrebleu"]
-
 [tool.black]
+# Black configuration for code formatting
 line-length = 88
-target-version = ["py310"]
+target-version = ['py38']
 exclude = '''
 /(
     \.git
@@ -64,6 +23,3 @@ exclude = '''
   | dist
 )/
 '''
-
-[tool.setuptools]
-# (other setuptools-specific configs as needed)
