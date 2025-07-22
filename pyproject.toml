@@ -11,8 +11,8 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "cython",
-    "regex",
     "sacremoses",
+    "sentencepiece",
     "indic-nlp-library-itt"
 ]
 classifiers = [
@@ -21,31 +21,32 @@ classifiers = [
     "Operating System :: OS Independent"
 ]
 
-[tool.poetry]
-packages = [
-    { include = "IndicTransToolkit" }
-]
-include = [
-    { path = "IndicTransToolkit/processor.c", format = ["sdist"] },
-    { path = "IndicTransToolkit/processor.pyx", format = ["sdist"] },
-    { path = "IndicTransToolkit/*.so", format = ["wheel"] }
-]
-
-# Optional/extra dependencies (for pip install -e .[<extra>] or poetry install --extras ...)
-[tool.poetry.dependencies]
-torch = { version = "*", optional = true }
-transformers = { version = "*", optional = true }
-sacrebleu = { version = "*", optional = true }
-
-[tool.poetry.extras]
+[optional-dependencies]
 torch = ["torch"]
 transformers = ["transformers"]
 sacrebleu = ["sacrebleu"]
 all = ["torch", "transformers", "sacrebleu"]
 
-[tool.poetry.group.dev.dependencies]
-pytest = "*"
-black = "*"
+[project.urls]
+Homepage = "https://github.com/VarunGumma/IndicTransToolkit"
+Repository = "https://github.com/VarunGumma/IndicTransToolkit"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["IndicTransToolkit*"]
+
+[tool.setuptools.package-data]
+IndicTransToolkit = ["*.pyx", "*.c", "*.so"]
+
+[build-system]
+requires = ["setuptools>=68.2.2", "wheel", "Cython"]
+build-backend = "setuptools.build_meta"
+
+[project.optional-dependencies]
+torch = ["torch"]
+transformers = ["transformers"]
+sacrebleu = ["sacrebleu"]
+all = ["torch", "transformers", "sacrebleu"]
 
 [tool.black]
 line-length = 88
@@ -64,6 +65,5 @@ exclude = '''
 )/
 '''
 
-[build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0", "Cython"]
-build-backend = "poetry.core.masonry.api"
+[tool.setuptools]
+# (other setuptools-specific configs as needed)
