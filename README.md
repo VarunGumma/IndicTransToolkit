@@ -5,18 +5,19 @@ The goal of this repository is to provide a simple, modular, and extendable tool
 
 ## Pre-requisites
  - `Python 3.10+`
- - Other requirements as listed in `requirements.txt`
 
 ## Configuration
+ - Direct installation:
+```bash
+pip install indictranstoolkit
+```
+
  - Editable installation (Note, this may take a while):
 ```bash 
 git clone https://github.com/VarunGumma/IndicTransToolkit
 cd IndicTransToolkit
 
-pip install --editable . --use-pep517 # required for pip >= 25.0
-
-# in case it fails, try:
-# pip install --editable . --use-pep517 --config-settings editable_mode=compat
+pip install --editable ./
 ```
 
  - Common Installation Failures:
