@@ -50,4 +50,6 @@ setup(
     ext_modules=cython_extensions,
     version=version,
     zip_safe=False,
+    include_package_data=True,
+    package_data={"IndicTransToolkit": ["processor.c"]},
 )
