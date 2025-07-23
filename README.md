@@ -6,12 +6,12 @@
 
 ## Pre-requisites
  - `Python 3.10+`
- - A `Linux` based environment (This toolkit is not meant/built/tested for `Windows` as of now).
+ - A `Linux/MacOS` based environment (This toolkit is not meant/built/tested for `Windows` as of now).
 
 ## Configuration
  - Direct installation:
 ```bash
-pip install indictranstoolkit
+pip install indictrans-toolkit
 ```
 
  - Editable installation (Note, this may take a while):
