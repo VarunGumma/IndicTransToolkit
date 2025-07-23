@@ -14,7 +14,7 @@ extensions = [
 cython_extensions = cythonize(extensions, compiler_directives={"language_level": "3"})
 
 setup(
-    name="indictrans-toolkit",
+    name="indictranstoolkit",
     ext_modules=cython_extensions,
     include_package_data=True,
     packages=find_packages(),

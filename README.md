@@ -11,7 +11,7 @@
 ## Configuration
  - Direct installation:
 ```bash
-pip install indictrans-toolkit
+pip install indictranstoolkit
 ```
 
  - Editable installation (Note, this may take a while):
