@@ -1,4 +1,4 @@
-name: Publish to PyPI
+name: Build and Publish Wheels
 
 on:
   release:
@@ -6,32 +6,52 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
-  deploy:
+  build_wheels:
+    name: Build wheels on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.20.0
+        with:
+          output-dir: wheelhouse
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cibw-wheels-${{ matrix.os }}
+          path: wheelhouse/*.whl
+
+  build_sdist:
+    name: Build source distribution
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build sdist
+        run: pipx run build --sdist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cibw-sdist
+          path: dist/*.tar.gz
+
+  upload_pypi:
+    name: Publish to PyPI
+    needs: [build_wheels, build_sdist]
     runs-on: ubuntu-latest
     environment:
       name: pypi
-      url: https://pypi.org/p/indictranstoolkit
+      url: https://pypi.org/project/indictranstoolkit/
     permissions:
-      id-token: write  # Enables trusted publishing
-
+      id-token: write
+    if: github.event_name == 'release' && github.event.action == 'published'
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python 3.10
-        uses: actions/setup-python@v5
+      - uses: actions/download-artifact@v4
         with:
-          python-version: "3.10"
-
-      - name: Remove any existing build
-        run: rm -rf dist
-
-      - name: Install build requirements
-        run: pip install --upgrade pip build cython
-
-      - name: Build package
-        run: python -m build
-
-      - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
+          pattern: cibw-*
+          path: dist
+          merge-multiple: true
+      - uses: pypa/gh-action-pypi-publish@release/v1
