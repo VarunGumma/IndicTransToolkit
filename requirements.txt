@@ -1,8 +1,0 @@
-setuptools>=68.2.2
-torch
-cython
-sacremoses
-sentencepiece
-transformers
-sacrebleu
-indic-nlp-library-itt

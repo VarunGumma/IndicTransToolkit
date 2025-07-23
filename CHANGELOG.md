@@ -1,5 +1,11 @@
 # Changelog
 
+# 📢 Release v1.1.1
+- 🔧 PyPi release fixes.
+
+# 📢 Release v1.1.0
+- 🔧 Prepare for PyPi release!
+
 # 📢 Release v1.0.5
 - 🔧 Optimized and refactored the code for `IndicDataCollator` and `IndicEvaluator`
 

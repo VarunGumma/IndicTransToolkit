@@ -1,22 +1,25 @@
 # IndicTransToolkit
 
 ## About
-The goal of this repository is to provide a simple, modular, and extendable toolkit for [Rotary-IndicTrans2](https://huggingface.co/collections/prajdabre/indictrans2-rope-6742ddac669a05db0804db35) and [IndicTrans2](https://huggingface.co/collections/ai4bharat/indictrans2-664ccb91d23bbae0d681c3ca) series of models and be compatible with the HuggingFace models released. Please refer to the `CHANGELOG.md` for latest developments.
+- The goal of this repository is to provide a simple, modular, and extendable toolkit for [Rotary-IndicTrans2](https://huggingface.co/collections/prajdabre/indictrans2-rope-6742ddac669a05db0804db35) and [IndicTrans2](https://huggingface.co/collections/ai4bharat/indictrans2-664ccb91d23bbae0d681c3ca) series of models and be compatible with the HuggingFace models released. 
+- Please refer to the `CHANGELOG.md` for latest developments.
 
 ## Pre-requisites
  - `Python 3.10+`
- - Other requirements as listed in `requirements.txt`
+ - A `Linux/MacOS` based environment (This toolkit is not meant/built/tested for `Windows` as of now).
 
 ## Configuration
+ - Direct installation:
+```bash
+pip install indictranstoolkit
+```
+
  - Editable installation (Note, this may take a while):
 ```bash 
 git clone https://github.com/VarunGumma/IndicTransToolkit
 cd IndicTransToolkit
 
-pip install --editable . --use-pep517 # required for pip >= 25.0
-
-# in case it fails, try:
-# pip install --editable . --use-pep517 --config-settings editable_mode=compat
+pip install --editable ./
 ```
 
  - Common Installation Failures:
@@ -29,7 +32,9 @@ For the training usecase, please refer [here](https://github.com/AI4Bharat/Indic
 ### PreTainedTokenizer 
 ```python
 import torch
-from IndicTransToolkit.IndicTransToolkit import IndicProcessor # NOW IMPLEMENTED IN CYTHON !!
+from IndicTransToolkit import IndicProcessor # NOW IMPLEMENTED IN CYTHON !!
+## BUG: If the above does not work, try:
+# from IndicTransToolkit.IndicTransToolkit import IndicProcessor
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 device = "cuda" is torch.cuda.is_available() else "cpu"
 
@@ -61,7 +66,7 @@ print(outputs)
 
 ### Evaluation
 - `IndicEvaluator` is a python implementation of [compute_metrics.sh](https://github.com/AI4Bharat/IndicTrans2/blob/main/compute_metrics.sh). 
-- We have found that this python implementation gives slightly lower scores than the original `compute_metrics.sh`. So, please use this function cautiously, and feel free to raise a PR if you have found the bug/fix. 
+- We have found that this python implementation gives slightly lower scores than the original `compute_metrics.sh`. See [here](http://github.com/mjpost/sacrebleu/issues/259) for more information. 
 ```python
 from IndicTransToolkit.IndicTransToolkit import IndicEvaluator
 
