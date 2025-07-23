@@ -1,13 +1,13 @@
-from typing import List, Union, Dict, Generator
 from pathlib import Path
-from sacrebleu.metrics import CHRF, BLEU
-
+from typing import List, Union, Dict, Generator
 from indicnlp.tokenize import indic_tokenize
 from indicnlp.normalize.indic_normalize import IndicNormalizerFactory
 
 
 class IndicEvaluator:
     def __init__(self):
+        from sacrebleu.metrics import CHRF, BLEU
+
         # === Metrics ===
         self._chrf2_metric = CHRF(word_order=2)
         self._bleu_metric_13a = BLEU(tokenize="13a")
