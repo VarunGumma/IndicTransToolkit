@@ -7,6 +7,7 @@ from indicnlp.normalize.indic_normalize import IndicNormalizerFactory
 class IndicEvaluator:
     def __init__(self):
         from sacrebleu.metrics import CHRF, BLEU
+
         # === Metrics ===
         self._chrf2_metric = CHRF(word_order=2)
         self._bleu_metric_13a = BLEU(tokenize="13a")
