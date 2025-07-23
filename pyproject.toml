@@ -7,7 +7,7 @@ requires = [
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "IndicTransToolkit"
+name = "indictranstoolkit"
 version = "1.1.0"
 description = "A simple, consistent, and extendable module for IndicTrans2 compatible with HF models"
 readme = "README.md"
