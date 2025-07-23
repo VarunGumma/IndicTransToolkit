@@ -2,8 +2,8 @@ from setuptools import setup
 from Cython.Build import cythonize
 
 # Read long description from README
-with open("README.md", "r", errors="ignore", encoding="utf-8") as fh:
-    long_description = fh.read().strip()
+with open("README.md", "r", encoding="utf-8") as f:
+    long_description = f.read().strip()
 
 # version
 version = "1.1.0"
@@ -12,16 +12,10 @@ version = "1.1.0"
 install_requires = [
     "cython",
     "sacremoses",
+    "transformers",
+    "sacrebleu",
     "indic-nlp-library-itt",
 ]
-
-# Optional dependencies for extras
-extras_require = {
-    "torch": ["torch"],
-    "transformers": ["transformers"],
-    "sacrebleu": ["sacrebleu"],
-    "all": ["torch", "transformers", "sacrebleu"],
-}
 
 # Cython extensions
 cython_extensions = cythonize(
@@ -46,7 +40,6 @@ setup(
     ],
     python_requires=">=3.10",
     install_requires=install_requires,
-    extras_require=extras_require,
     ext_modules=cython_extensions,
     version=version,
     zip_safe=False,
