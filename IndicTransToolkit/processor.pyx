@@ -7,7 +7,7 @@ All other methods are internal (cdef) for optimized Cython usage.
 
 import regex as re
 from tqdm import tqdm
-from queue import Queue
+from queue import Queue, Empty
 from typing import List, Dict, Union
 
 # Importing Python objects since these libraries don't offer C-extensions
@@ -413,10 +413,14 @@ cdef class IndicProcessor:
     cdef str _postprocess(self, object sent, str lang, dict placeholder_entity_map=None) except *:
         """
         Postprocess a single sentence:
-        1) Use provided placeholder map or pull from queue
+        1) Use provided placeholder map or pull from queue (non-blocking)
         2) Fix scripts for Perso-Arabic
         3) Restore placeholders
         4) Detokenize
+
+        Note:
+        - Avoids indefinite blocking when no placeholder maps are present.
+        - If inference is False or no map is available, falls back to {}.
         """
         cdef str lang_code
         cdef str script_code
@@ -429,10 +433,19 @@ cdef class IndicProcessor:
         if isinstance(sent, (tuple, list)):
             sent = sent[0]
 
-        # Use provided map or get from queue
+        # Use provided map or attempt a safe, non-blocking retrieval
         if placeholder_entity_map is None:
-            placeholder_entity_map = self._placeholder_entity_maps.get()
-            
+            if not self.inference:
+                placeholder_entity_map = {}
+            else:
+                try:
+                    if not self._placeholder_entity_maps.empty():
+                        placeholder_entity_map = self._placeholder_entity_maps.get_nowait()
+                    else:
+                        placeholder_entity_map = {}
+                except Empty:
+                    placeholder_entity_map = {}
+
         lang_code, script_code = lang.split("_", 1)
         iso_lang = self._flores_codes.get(lang, "hi")
 
@@ -508,6 +521,11 @@ cdef class IndicProcessor:
             lang: Target language code
             visualize: Whether to show progress bar
             num_return_sequences: Number of sequences returned per input
+
+        Notes:
+            - Avoids indefinite blocking by safely retrieving placeholder maps.
+            - Validates len(sents) % num_return_sequences == 0 to prevent index errors.
+            - Does not touch Queue internals when draining.
         """
         cdef object iterator
         cdef list results = []
@@ -515,12 +533,34 @@ cdef class IndicProcessor:
         cdef dict current_map
         cdef int i, j
         cdef int n = len(sents)
-        cdef int num_inputs = n // num_return_sequences
+        cdef int num_inputs
+        cdef int map_idx
+        cdef object q = self._placeholder_entity_maps
+        cdef int expected_maps
+
+        # Validate divisibility to avoid out-of-range indexing
+        if num_return_sequences <= 0:
+            raise ValueError("num_return_sequences must be a positive integer.")
+        if n % num_return_sequences != 0:
+            raise ValueError(
+                f"len(sents) ({n}) must be divisible by num_return_sequences ({num_return_sequences})."
+            )
+
+        num_inputs = n // num_return_sequences
+        expected_maps = num_inputs
         
-        # First, collect all placeholder maps from the queue
-        for i in range(num_inputs):
-            placeholder_maps.append(self._placeholder_entity_maps.get())
-        
+        # Collect placeholder maps safely (non-blocking/fallback when missing)
+        if not self.inference:
+            for i in range(expected_maps):
+                placeholder_maps.append({})
+        else:
+            for i in range(expected_maps):
+                try:
+                    # Give a small timeout to avoid indefinite blocking; fallback to {}
+                    placeholder_maps.append(q.get(timeout=5))
+                except Empty:
+                    placeholder_maps.append({})
+
         if visualize:
             iterator = tqdm(enumerate(sents), total=n, desc=f" | > Post-processing {lang}", unit="line")
         else:
@@ -530,9 +570,20 @@ cdef class IndicProcessor:
         for i, sent in iterator:
             # Determine which placeholder map to use
             map_idx = i // num_return_sequences
-            current_map = placeholder_maps[map_idx]
+            if map_idx < len(placeholder_maps):
+                current_map = placeholder_maps[map_idx]
+            else:
+                current_map = {}
             results.append(self._postprocess(sent, lang, current_map))
         
-        self._placeholder_entity_maps.queue.clear()
+        # Safely drain any remaining items from the queue without accessing internals
+        try:
+            while not q.empty():
+                try:
+                    q.get_nowait()
+                except Empty:
+                    break
+        except Exception:
+            pass
         
         return results
