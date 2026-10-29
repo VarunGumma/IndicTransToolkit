@@ -209,7 +209,7 @@ cdef class IndicProcessor:
             "आय. डी. ",
             "आय. डी.",
             "आय . डी . ",
-            "आय . डी ."
+            "आय . डी .",
             "आइ . डी . ",
             "आइ . डी .",
             "आइ. डी. ",
@@ -517,9 +517,21 @@ cdef class IndicProcessor:
         cdef int n = len(sents)
         cdef int num_inputs = n // num_return_sequences
         
-        # First, collect all placeholder maps from the queue
-        for i in range(num_inputs):
-            placeholder_maps.append(self._placeholder_entity_maps.get())
+        # First, collect all placeholder maps from the queue. A blocking `get()` would hang forever when
+        # postprocess_batch is not paired with a preprocess_batch call, so fail loudly instead.
+        if not self.inference:
+            # no placeholders are created outside of inference mode
+            placeholder_maps = [{} for i in range(num_inputs)]
+        elif self._placeholder_entity_maps.qsize() < num_inputs:
+            raise RuntimeError(
+                f"postprocess_batch received {n} sentences ({num_inputs} inputs x {num_return_sequences} sequences), "
+                f"but only {self._placeholder_entity_maps.qsize()} preprocessed inputs are pending. Every "
+                "postprocess_batch call must follow a preprocess_batch call on the corresponding inputs; "
+                "call preprocess_batch again before post-processing the same inputs a second time."
+            )
+        else:
+            for i in range(num_inputs):
+                placeholder_maps.append(self._placeholder_entity_maps.get_nowait())
         
         if visualize:
             iterator = tqdm(enumerate(sents), total=n, desc=f" | > Post-processing {lang}", unit="line")

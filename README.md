@@ -36,7 +36,7 @@ from IndicTransToolkit import IndicProcessor # NOW IMPLEMENTED IN CYTHON !!
 ## BUG: If the above does not work, try:
 # from IndicTransToolkit.IndicTransToolkit import IndicProcessor
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
-device = "cuda" is torch.cuda.is_available() else "cpu"
+device = "cuda" if torch.cuda.is_available() else ("mps" if torch.backends.mps.is_available() else "cpu")
 
 ip = IndicProcessor(inference=True)
 tokenizer = AutoTokenizer.from_pretrained("ai4bharat/indictrans2-en-indic-dist-200M", trust_remote_code=True)
@@ -61,6 +61,7 @@ print(outputs)
 >>> ['यह एक परीक्षण वाक्य है।', 'यह एक और लंबा अलग परीक्षण वाक्य है।', 'कृपया 9876543210 पर एक एस. एम. एस. भेजें और 15 अक्टूबर, 2023 तक newemail123@xyz.com पर एक ईमेल भेजें।']
 ```
 
+- Each `postprocess_batch` call consumes the placeholders (URLs, emails, numbers, ...) stored by the preceding `preprocess_batch` call (in `inference=True` mode), so call `preprocess_batch` once per `postprocess_batch`, e.g. once per decoding configuration. Post-processing a batch twice raises an error.
 - In case `num_return_sequences` > 1 in the generation config, please set the corresponding value `num_return_sequences` argument in the `postprocess_batch` method as well. By default, the value is 1. 
 - For `batch_size=N` and `num_return_sequences=M`, the processoer output is then similar to the original decoded tokenizer output, i.e. a list of $N \times M$ sentences, where the $T_i$ ... $T_{i+M}$ are translations of $S_i$.
 

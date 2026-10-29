@@ -2,13 +2,15 @@ import numpy as np
 from dataclasses import dataclass
 from typing import Any, Optional, Union, List, Dict
 
+# imported at module level (not inside the class body) so that `__call__` can see them;
+# `transformers.tokenization_utils` no longer exists in transformers v5
+from transformers import PreTrainedTokenizerBase
+from transformers.utils import PaddingStrategy
+from transformers.data.data_collator import pad_without_fast_tokenizer_warning
+
 
 @dataclass
 class IndicDataCollator:
-    from transformers.utils import PaddingStrategy
-    from transformers.tokenization_utils import PreTrainedTokenizerBase
-    from transformers.data.data_collator import pad_without_fast_tokenizer_warning
-
     tokenizer: PreTrainedTokenizerBase
     model: Optional[Any] = None
     padding: Union[bool, str, PaddingStrategy] = True
