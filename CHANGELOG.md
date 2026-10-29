@@ -1,5 +1,13 @@
 # Changelog
 
+# 📢 Release v1.1.2
+- 🐛 Fix `NameError: name 'pad_without_fast_tokenizer_warning' is not defined` in `IndicDataCollator` ([Issue #30](https://github.com/VarunGumma/IndicTransToolkit/issues/30)): the `transformers` imports lived inside the class body, so they were not visible from `__call__`.
+- 🐛 Fix `import IndicTransToolkit` failing with transformers v5 (`transformers.tokenization_utils` no longer exists), part of the transformers v5 support requested in [Issue #29](https://github.com/VarunGumma/IndicTransToolkit/issues/29).
+- 🐛 `IndicProcessor.postprocess_batch` raises a clear error instead of blocking forever when it is not preceded by a matching `preprocess_batch` call, and no longer blocks in `inference=False` mode.
+- 🐛 Fix a missing comma in the Indic placeholder failure cases, which merged two of them into one invalid entry.
+- 📝 Fix the device selection in the README example and add `mps`.
+- ℹ️ The model-side errors reported in [Issue #28](https://github.com/VarunGumma/IndicTransToolkit/issues/28) (`'NoneType' object has no attribute 'shape'` with transformers >= 4.54) and [Issue #29](https://github.com/VarunGumma/IndicTransToolkit/issues/29) (`No module named 'transformers.onnx'`, `AttributeError: _special_tokens_map`) come from the modeling/tokenization code hosted with the models, and are addressed by the companion update of the IndicTrans2 model repositories on the Hugging Face Hub.
+
 # 📢 Release v1.1.1
 - 🔧 PyPi release fixes.
 
