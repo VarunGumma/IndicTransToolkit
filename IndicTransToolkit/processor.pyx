@@ -29,6 +29,7 @@ cdef class IndicProcessor:
 
     cdef object _URL_PATTERN
     cdef object _NUMERAL_PATTERN
+    cdef object _PLAIN_DECIMAL
     cdef object _EMAIL_PATTERN
     cdef object _OTHER_PATTERN
 
@@ -175,8 +176,10 @@ cdef class IndicProcessor:
             r"\b(?<![\w/.])(?:(?:https?|ftp)://)?(?:(?:[\w-]+\.)+(?!\.))(?:[\w/\-?#&=%.]+)+(?!\.\w+)\b"
         )
         self._NUMERAL_PATTERN = re.compile(
-            r"(~?\d+\.?\d*\s?%?\s?-?\s?~?\d+\.?\d*\s?%|~?\d+%|\d+[-\/.,:']\d+[-\/.,:'+]\d+(?:\.\d+)?|\d+[-\/.:'+]\d+(?:\.\d+)?)"
+            r"(~?\d+\.?\d*\s?%?\s?-?\s?~?\d+\.?\d*\s?%|~?\d+%|\d+(?:[-\/.,:']\d+)+[-\/.,:'+]\d+(?:\.\d+)?|\d+[-\/.:'+]\d+(?:\.\d+)?)"
         )
+        # a plain decimal such as "302.34": a number, not a URL
+        self._PLAIN_DECIMAL = re.compile(r"\d+\.\d+")
         self._EMAIL_PATTERN = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}")
         self._OTHER_PATTERN = re.compile(r"[A-Za-z0-9]*[#|@]\w+")
 
@@ -278,6 +281,10 @@ cdef class IndicProcessor:
                 if pattern is self._URL_PATTERN:
                     if len(match.replace(".", "")) < 4:
                         continue
+                    # "302.34" in "₹7,302.34" is a number, not a URL; leave it to the numeral
+                    # pattern so the whole amount is masked as one entity
+                    if self._PLAIN_DECIMAL.fullmatch(match):
+                        continue
                 if pattern is self._NUMERAL_PATTERN:
                     if len(match.replace(" ", "").replace(".", "").replace(":", "")) < 4:
                         continue
@@ -317,8 +324,16 @@ cdef class IndicProcessor:
                     placeholder_entity_map[f"{indic_case} {serial_no}"] = match
                     placeholder_entity_map[f"{indic_case}{serial_no}"] = match
 
-                # Replace the match with the base placeholder
-                text = text.replace(match, base_placeholder)
+                # Replace the match with the base placeholder.
+                # A match that starts/ends with a digit is replaced only where it is not part
+                # of a longer number, so masking "2,34,567" does not turn "12,34,567" into "1<ID1>".
+                text = re.sub(
+                    ("(?<!\\d)" if match[0].isdigit() else "")
+                    + re.escape(match)
+                    + ("(?!\\d)" if match[len(match) - 1].isdigit() else ""),
+                    base_placeholder,
+                    text,
+                )
                 serial_no += 1
 
         # Clean up any remaining placeholder artifacts
